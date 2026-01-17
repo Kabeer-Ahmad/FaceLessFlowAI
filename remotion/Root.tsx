@@ -29,7 +29,13 @@ export const RemotionRoot: React.FC = () => {
                             animation: 'typewriter',
                             strokeWidth: 'medium'
                         },
-                        transitions: { mode: 'random', type: 'fadein' }
+                        transitions: { mode: 'random', type: 'fadein' },
+                        audioWave: {
+                            enabled: false,
+                            position: 'bottom',
+                            style: 'bars',
+                            color: '#ffffff'
+                        }
                     }
                 }}
                 calculateMetadata={({ props }) => {
