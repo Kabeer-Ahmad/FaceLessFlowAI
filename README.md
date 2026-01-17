@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FacelessFlowAI - Web Dashboard (`mirza-web`)
 
-## Getting Started
+## ⚡ Overview
+This is the frontend dashboard for FacelessFlowAI, built with **Next.js 14**, **TailwindCSS**, and **TypeScript**. It provides the complete studio interface for users to generate scripts, customize scenes, and preview videos in real-time.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🎥 Remotion Integration
+We use **Remotion** in a unique "Hybrid" setup:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 1. The Player (Client-Side)
+Inside we use `@remotion/player` to provide a real-time, playable preview of the video.
+*   **Location**: `remotion/` directory contains the visual components (`Scene.tsx`, `MainComposition.tsx`).
+*   **WYSIWYG**: The code running in the browser Player is *identical* to the code running on the renderer. This ensures that what the user sees in the dashboard is exactly what gets rendered.
+*   **Performance**: The Player renders standard HTML/CSS/Canvas elements. It does **not** encode video in the browser; it just plays the React components.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 2. Shared Logic
+The critical file `remotion/Scene.tsx` is essentially "shared" logic.
+*   **Frontend**: Used by the Player to show a lightweight preview.
+*   **Backend**: The *renderer service* uses a copy of this logic to actually frame-by-frame render the video using Chrome headless.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🔗 Backend & Data Flow
 
-To learn more about Next.js, take a look at the following resources:
+### The "Renderer" Service
+Actual video encoding (MP4 generation) is CPU-intensive and happens on a separate **Node.js/Express** microservice (`facelessflow-renderer`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Communication Flow
+1.  **Generation**: User clicks "Export Video".
+2.  **Trigger**: Next.js sends an HTTP request to the Renderer API (e.g., `https://hf-space-url.com/render`).
+3.  **State Sync (Supabase)**:
+    *   The Renderer updates the project status (`rendering`, `done`, `error`) in the Supabase Database.
+    *   website listens to **Supabase Realtime** changes to update the UI instantly without polling.
+4.  **Delivery**: Once finished, the video URL is saved to Supabase, and the "Download" button appears in this dashboard.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 📦 Key Directory Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+*   `app/project/[id]/page.tsx`: The main Studio UI. Handles all state (scenes, settings, player).
+*   `remotion/`:
+    *   `Scene.tsx`: The core visual component. Handles animations (Ken Burns), text overlays, and media placement.
+    *   `MainComposition.tsx`: Orchestrates the timeline, stringing scenes together.
+*   `actions/`: Server Actions for AI operations.
+    *   `generateScene.ts`: Calls Gemini/OpenAI to generate text & prompts.
+    *   `regenerateImage.ts`: Calls image generation APIs.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 🎨 Features & Options
+
+### 🎭 Visual Styles
+We offer diverse visual engines to match the narrative tone:
+*   **Zen Monk**: Minimalist, peaceful, spiritual aesthetics.
+*   **Cinematic (Realistic)**: High-fidelity photorealistic imagery.
+*   **Stock + AI (Natural)**: Hybrid engine using real 4K stock footage from Pexels, matched to the script context.
+*   **Stick Figure**: Simple, fun, engaging minimal animations.
+*   **Cartoon / Vector**: Vibrant, flat-style vector art.
+*   **Medical / Health**: Clean, anatomical, professional medical visuals.
+*   **Pop Art / Retro**: Bold colors, halftone patterns, vintage comic style.
+
+### 🎙️ Audio Services
+Powered by advanced TTS models (ElevenLabs/OpenAI):
+*   **Man With Deep Voice**: Authoritative, storytelling.
+*   **Trustworthy Man**: Calm, reliable, news-style.
+*   **Sharp Commentator**: Fast-paced, engaging, energetic.
+*   **Soft Spoken Woman**: Gentle, soothing, ASMR-adjacent.
+*   **Barbara O'Neill**: Specialized clone for health/wellness niches.
+
+### ⚙️ Customization Options
+*   **Camera Movements**: Zoom In, Zoom Out, Pan (Left/Right/Up/Down), Static.
+*   **Transitions**: Crossfade, Fade In, White Flash, Camera Flash.
+*   **Captions**:
+    *   **Fonts**: Helvetica, Serif, Brush, Monospace.
+    *   **Animations**: Typewriter, Fade-in, Slide-up, Bounce.
+    *   **Position**: Top, Center, Mid-Bottom, Bottom.
+*   **Audio Visualization**: Real-time waveforms (Bars, Wave, Round) with custom colors.
