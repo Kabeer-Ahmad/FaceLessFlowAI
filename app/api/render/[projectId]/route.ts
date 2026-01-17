@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
-const RENDERER_URL = 'https://kabeerahmad-facelessflow-renderer.hf.space';
+const RENDERER_URL = 'https://stylique-facelessflow-renderer.hf.space';
 
 export async function GET(
     request: NextRequest,
@@ -39,6 +39,16 @@ export async function GET(
         return NextResponse.json({ error: 'No ready scenes found' }, { status: 400 });
     }
 
+    // 4. Update Status to 'rendering'
+    const { error: updateError } = await supabase
+        .from('projects')
+        .update({ status: 'rendering' })
+        .eq('id', projectId);
+
+    if (updateError) {
+        return NextResponse.json({ error: `Failed to update status: ${updateError.message}` }, { status: 500 });
+    }
+
     try {
         console.log(`[Render API] Calling HuggingFace Space for project ${projectId}`);
 
@@ -49,6 +59,7 @@ export async function GET(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+                projectId, // Needed for async update
                 scenes,
                 settings: project.settings
             }),
@@ -56,24 +67,21 @@ export async function GET(
 
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`Renderer failed: ${error}`);
+            throw new Error(`Renderer trigger failed: ${error}`);
         }
 
-        console.log(`[Render API] Received video from HuggingFace Space`);
+        return NextResponse.json({ success: true, message: 'Rendering started' });
 
-        // Get video buffer
-        const videoBuffer = await response.arrayBuffer();
+    } catch (error: any) {
+        console.error('[Render API] Error:', error);
 
-        // Return video file
-        return new NextResponse(videoBuffer, {
-            headers: {
-                'Content-Type': 'video/mp4',
-                'Content-Disposition': `attachment; filename="video-${projectId.slice(0, 8)}.mp4"`,
-            },
-        });
+        // Revert status to error so user can try again
+        await supabase
+            .from('projects')
+            .update({ status: 'error' })
+            .eq('id', projectId);
 
-    } catch (e: any) {
-        console.error('[Render API] Error:', e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

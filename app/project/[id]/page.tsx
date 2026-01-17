@@ -11,6 +11,7 @@ import { regenerateImage } from '@/actions/regenerateImage';
 import { Player } from '@remotion/player';
 import { MainComposition } from '@/remotion/MainComposition';
 import { ChevronLeft, Play, LayoutList, Image as ImageIcon, Music, Type, AlertCircle, Sparkles, ChevronDown, Loader2, Wand2, Settings, RefreshCw, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function ProjectPage() {
     const params = useParams();
@@ -25,6 +26,7 @@ export default function ProjectPage() {
     const [genProgress, setGenProgress] = useState(0);
     const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
     const [showScript, setShowScript] = useState(false);
+    const [showCredits, setShowCredits] = useState(false);
     const [regeneratingAudio, setRegeneratingAudio] = useState<string | null>(null);
     const [regeneratingImage, setRegeneratingImage] = useState<string | null>(null);
     const [rendering, setRendering] = useState(false);
@@ -45,6 +47,19 @@ export default function ProjectPage() {
             setLoading(false);
         };
         loadProject();
+
+        // Subscribe to realtime updates for projects (to get video_url)
+        const projectChannel = supabase.channel(`project-${projectId}`)
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'projects', filter: `id=eq.${projectId}` },
+                (payload) => {
+                    console.log('Project updated:', payload.new);
+                    setProject(payload.new as ProjectApi);
+                    if (payload.new.status === 'done' && payload.new.video_url) {
+                        setRendering(false);
+                    }
+                })
+            .subscribe();
 
         // Subscribe to realtime updates for scenes
         const channel = supabase.channel(`scenes-${projectId}`)
@@ -72,17 +87,27 @@ export default function ProjectPage() {
                 })
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            supabase.removeChannel(channel);
+            supabase.removeChannel(projectChannel);
+        };
     }, [projectId, router]);
+
+    const [generationLog, setGenerationLog] = useState<string>("");
+
+    // ... (rest of states)
 
     const handleGenerate = async () => {
         if (!project) return;
         setGenerating(true);
         setGenProgress(0);
+        setGenerationLog("Initializing generation...");
 
         try {
             // 1. Split Script (Simple regex)
             const sentences = project.script.match(/[^.!?]+[.!?]+/g) || [project.script];
+
+            let generatedCount = 0;
 
             // 2. Iterate and Generate
             for (let i = 0; i < sentences.length; i++) {
@@ -95,21 +120,45 @@ export default function ProjectPage() {
                     continue;
                 }
 
+                // Rate Limit Check
+                if (generatedCount > 0 && generatedCount % 40 === 0) {
+                    setGenerationLog(`Rate limit pause: Waiting 60 seconds before continuing...`);
+                    await new Promise(resolve => setTimeout(resolve, 60000));
+                    setGenerationLog("Resuming generation...");
+                }
+
+                setGenerationLog(`Generating scene ${i + 1} of ${sentences.length}...`);
+
                 // Call Server Action
                 const result = await generateScene(projectId, i, text, project.settings);
 
-                if (!result.success) {
-                    alert(`Error generating scene ${i + 1}: ${result.error}`);
+                if (!result.success || !result.scene) {
+                    setGenerationLog(`Error generating scene ${i + 1}: ${result.error}`);
+                    toast.error(`Error generating scene ${i + 1}: ${result.error}`);
                     break;
                 }
 
+                // OPTIMISTIC UPDATE: Add the new scene to state immediately
+                // This prevents the "empty state" issue if realtime is slow
+                setScenes(prev => {
+                    const existing = prev.find(s => s.id === result.scene!.id);
+                    if (existing) return prev;
+                    return [...prev, result.scene!].sort((a, b) => a.order_index - b.order_index);
+                });
+
+                generatedCount++;
                 setGenProgress(((i + 1) / sentences.length) * 100);
             }
+            setGenerationLog("Generation complete!");
         } catch (e) {
             console.error(e);
-            alert("Generation failed");
+            setGenerationLog("Generation failed due to an error.");
+            setGenerationLog("Generation failed due to an error.");
+            toast.error("Generation failed");
         } finally {
             setGenerating(false);
+            // Clear log after a delay
+            setTimeout(() => setGenerationLog(""), 5000);
         }
     };
 
@@ -119,8 +168,9 @@ export default function ProjectPage() {
         const result = await updateProjectSettings(projectId, newSettings);
         if (result.success && result.settings) {
             setProject({ ...project, settings: result.settings });
+            setProject({ ...project, settings: result.settings });
         } else {
-            alert(`Failed to update settings: ${result.error}`);
+            toast.error(`Failed to update settings: ${result.error}`);
         }
     };
 
@@ -134,10 +184,10 @@ export default function ProjectPage() {
                 const { data: scns } = await supabase.from('scenes').select('*').eq('project_id', projectId).order('order_index');
                 if (scns) setScenes(scns);
             } else {
-                alert(`Failed to regenerate audio: ${result.error}`);
+                toast.error(`Failed to regenerate audio: ${result.error}`);
             }
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toast.error(`Error: ${e.message}`);
         } finally {
             setRegeneratingAudio(null);
         }
@@ -153,10 +203,10 @@ export default function ProjectPage() {
                 const { data: scns } = await supabase.from('scenes').select('*').eq('project_id', projectId).order('order_index');
                 if (scns) setScenes(scns);
             } else {
-                alert(`Failed to regenerate image: ${result.error}`);
+                toast.error(`Failed to regenerate image: ${result.error}`);
             }
         } catch (e: any) {
-            alert(`Error: ${e.message}`);
+            toast.error(`Error: ${e.message}`);
         } finally {
             setRegeneratingImage(null);
         }
@@ -167,7 +217,7 @@ export default function ProjectPage() {
         if (!project) return;
         setRendering(true);
         try {
-            // Call API route
+            // Call API route to trigger async render
             const response = await fetch(`/api/render/${projectId}`);
 
             if (!response.ok) {
@@ -175,22 +225,13 @@ export default function ProjectPage() {
                 throw new Error(error.error || 'Export failed');
             }
 
-            // Get the video blob
-            const blob = await response.blob();
+            // Success - just notify user
+            toast.success("Rendering started! This may take a few minutes. You can close this tab or wait here.");
+            toast.info("The 'Download Video' button will appear when it's ready.");
 
-            // Trigger download
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `video-${projectId.slice(0, 8)}.mp4`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         } catch (e: any) {
-            alert(`Export error: ${e.message}`);
-        } finally {
-            setRendering(false);
+            toast.error(`Export error: ${e.message}`);
+            setRendering(false); // Only reset if error. If success, let it stay 'rendering' until realtime update comes.
         }
     };
 
@@ -209,6 +250,15 @@ export default function ProjectPage() {
                     <h1 className="text-lg font-bold text-stone-200">Video Studio</h1>
                 </div>
                 <div className="flex items-center gap-3">
+                    {project.settings.visualStyle === 'stock_natural' && (
+                        <button
+                            onClick={() => setShowCredits(!showCredits)}
+                            className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm ${showCredits ? 'bg-orange-600 text-white' : 'bg-stone-800 hover:bg-stone-700 text-stone-200'}`}
+                        >
+                            <Sparkles size={16} />
+                            Artists
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowScript(!showScript)}
                         className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded-lg transition-colors flex items-center gap-2 text-sm"
@@ -216,40 +266,92 @@ export default function ProjectPage() {
                         <LayoutList size={16} />
                         {showScript ? 'Hide' : 'Show'} Script
                     </button>
-                    <button
-                        onClick={handleExportVideo}
-                        disabled={rendering || scenes.filter(s => s.status === 'ready').length === 0}
-                        className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
-                    >
-                        {rendering ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                Rendering...
-                            </>
-                        ) : (
-                            <>
-                                <Download size={16} />
-                                Export Video
-                            </>
-                        )}
-                    </button>
+                    {project.video_url ? (
+                        <a
+                            href={project.video_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                        >
+                            <Download size={16} />
+                            Download Video
+                        </a>
+                    ) : (
+                        <button
+                            onClick={handleExportVideo}
+                            disabled={rendering || project.status === 'rendering' || scenes.filter(s => s.status === 'ready').length === 0}
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                        >
+                            {rendering || project.status === 'rendering' ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin" />
+                                    Rendering...
+                                </>
+                            ) : (
+                                <>
+                                    <Download size={16} />
+                                    Export Video
+                                </>
+                            )}
+                        </button>
+                    )}
                     <div className={`px-3 py-1.5 rounded-full text-xs font-mono border ${project.status === 'done' ? 'bg-green-500/10 border-green-500/20 text-green-500' :
                         project.status === 'generating' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
-                            'bg-stone-800 border-stone-700 text-stone-500'
+                            project.status === 'rendering' ? 'bg-purple-500/10 border-purple-500/20 text-purple-500' :
+                                project.status === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                                    'bg-stone-800 border-stone-700 text-stone-500'
                         }`}>
                         {project.status.toUpperCase()}
                     </div>
                 </div>
             </header>
 
-            {/* Script Panel */}
             {showScript && (
-                <div className="border-b border-white/5 bg-stone-900/30 p-6 animate-in slide-in-from-top-2">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">Original Scripture</h3>
-                        <span className="text-xs text-stone-500">{scenes.length} {scenes.length === 1 ? 'Scene' : 'Scenes'}</span>
+                <div className="border-b border-white/5 bg-stone-900/30 p-6 animate-in slide-in-from-top-2 max-h-[60vh] overflow-y-auto">
+                    <div className="mb-8">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">Original Scripture</h3>
+                            <span className="text-xs text-stone-500">{scenes.length} {scenes.length === 1 ? 'Scene' : 'Scenes'}</span>
+                        </div>
+                        <p className="text-stone-300 font-serif leading-relaxed opacity-80 max-w-4xl">{project.script}</p>
                     </div>
-                    <p className="text-stone-300 font-serif leading-relaxed opacity-80 max-w-4xl">{project.script}</p>
+
+
+                </div>
+            )}
+
+            {showCredits && (
+                <div className="border-b border-white/5 bg-stone-900/30 p-6 animate-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-orange-400 flex items-center gap-2">
+                            <Sparkles size={14} /> Artist Credits
+                        </h3>
+                        <button
+                            onClick={() => {
+                                const text = scenes
+                                    .filter(s => s.attribution)
+                                    .map(s => `${s.attribution}`)
+                                    .join('\n');
+                                navigator.clipboard.writeText("Credits:\n" + text);
+                                toast.success("Credits copied to clipboard!");
+                            }}
+                            className="text-xs bg-stone-800 hover:bg-stone-700 px-3 py-1.5 rounded transition-colors"
+                        >
+                            Copy All
+                        </button>
+                    </div>
+                    <div className="bg-black/50 p-4 rounded-lg font-mono text-xs text-stone-400 whitespace-pre-wrap select-all">
+                        {scenes.filter(s => s.attribution).length > 0 ? (
+                            <>
+                                <div className="mb-2 text-stone-500">// Copy and paste into your video description</div>
+                                {scenes.filter(s => s.attribution).map((s, i) => (
+                                    <div key={s.id}>{s.attribution}</div>
+                                ))}
+                            </>
+                        ) : (
+                            <div className="text-stone-600">No artist attributions found for these scenes.</div>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -262,7 +364,12 @@ export default function ProjectPage() {
                         <span className="text-xs font-bold uppercase tracking-wider text-stone-500 flex items-center gap-2">
                             <LayoutList size={14} /> Storyboard ({scenes.length})
                         </span>
-                        {generating && <span className="text-xs text-orange-500 animate-pulse">{Math.round(genProgress)}%</span>}
+                        {generating && (
+                            <div className="flex flex-col items-end">
+                                <span className="text-xs text-orange-500 animate-pulse">{Math.round(genProgress)}%</span>
+                                <span className="text-[10px] text-stone-500">{generationLog}</span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
@@ -284,7 +391,18 @@ export default function ProjectPage() {
                                     {/* Thumbnail */}
                                     <div className="w-16 h-16 bg-black rounded-md overflow-hidden flex-shrink-0 relative border border-white/5">
                                         {scene.image_url ? (
-                                            <img src={scene.image_url} className="w-full h-full object-cover" alt={`Scene ${idx + 1}`} />
+                                            (scene.media_type === 'video' || scene.image_url.includes('.mp4')) ? (
+                                                <video
+                                                    src={scene.image_url}
+                                                    className="w-full h-full object-cover"
+                                                    muted
+                                                    loop
+                                                    autoPlay
+                                                    playsInline
+                                                />
+                                            ) : (
+                                                <img src={scene.image_url} className="w-full h-full object-cover" alt={`Scene ${idx + 1}`} />
+                                            )
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-red-500 bg-red-500/10">
                                                 <AlertCircle size={16} />
@@ -395,7 +513,7 @@ export default function ProjectPage() {
 
                 {/* CENTER: Player */}
                 <div className="flex-1 bg-black/40 flex flex-col">
-                    <div className="bg-stone-900/95 border-b border-white/10 p-3 flex items-center gap-4 overflow-x-auto">
+                    <div className="bg-stone-900/95 border-b border-white/10 p-3 flex flex-wrap items-center gap-x-4 gap-y-3">
                         <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Caption Settings:</span>
 
                         {/* Caption Toggle - Improved Styling */}
@@ -487,6 +605,59 @@ export default function ProjectPage() {
                             <option value="bold">Bold</option>
                         </select>
 
+
+                        {/* Divider */}
+                        <div className="h-6 w-px bg-white/10"></div>
+
+                        {/* AUDIO WAVE SETTINGS */}
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={project.settings.audioWave?.enabled ?? false}
+                                onChange={(e) => handleUpdateSettings({
+                                    audioWave: {
+                                        ...(project.settings.audioWave || { position: 'bottom', style: 'bars', color: '#ff5500' }),
+                                        enabled: e.target.checked
+                                    }
+                                })}
+                                className="toggle"
+                            />
+                            <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Audio Wave:</span>
+                        </div>
+
+
+
+                        {/* Wave Position */}
+                        <select
+                            value={project.settings.audioWave?.position || 'bottom'}
+                            onChange={(e) => handleUpdateSettings({
+                                audioWave: {
+                                    ...(project.settings.audioWave || { enabled: true, style: 'bars', color: '#ff5500' }),
+                                    position: e.target.value as any
+                                }
+                            })}
+                            className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                            disabled={!project.settings.audioWave?.enabled}
+                        >
+                            <option value="bottom">Bottom</option>
+                            <option value="mid-bottom">Mid-Bottom</option>
+                            <option value="center">Center</option>
+                            <option value="top">Top</option>
+                        </select>
+
+                        {/* Wave Color */}
+                        <input
+                            type="color"
+                            value={project.settings.audioWave?.color || '#ff5500'}
+                            onChange={(e) => handleUpdateSettings({
+                                audioWave: {
+                                    ...(project.settings.audioWave || { enabled: true, style: 'bars', position: 'bottom' }),
+                                    color: e.target.value
+                                }
+                            })}
+                            className="h-6 w-6 rounded cursor-pointer bg-transparent border-none p-0"
+                            disabled={!project.settings.audioWave?.enabled}
+                        />
                         {/* Divider */}
                         <div className="h-6 w-px bg-white/10"></div>
                         <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Transitions:</span>
@@ -505,9 +676,50 @@ export default function ProjectPage() {
                             <option value="white_flash">White Flash</option>
                             <option value="camera_flash">Camera Flash</option>
                         </select>
+                        {/* Divider */}
+                        <div className="h-6 w-px bg-white/10"></div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Camera:</span>
+
+                        <div className="flex flex-wrap gap-1 max-w-[300px]">
+                            {[
+                                { id: 'zoom_in', label: 'Zoom In' },
+                                { id: 'zoom_out', label: 'Zoom Out' },
+                                { id: 'pan_left', label: 'Pan ←' },
+                                { id: 'pan_right', label: 'Pan →' },
+                                { id: 'pan_up', label: 'Pan ↑' },
+                                { id: 'pan_down', label: 'Pan ↓' },
+                                { id: 'static', label: 'Static' },
+                            ].map((move) => {
+                                const isSelected = (project.settings.cameraMovements || ['zoom_in']).includes(move.id as any);
+                                return (
+                                    <button
+                                        key={move.id}
+                                        onClick={() => {
+                                            const current = project.settings.cameraMovements || ['zoom_in'];
+                                            let next = [];
+                                            if (isSelected) {
+                                                next = current.filter(c => c !== move.id);
+                                                if (next.length === 0) next = ['static']; // Prevent empty
+                                            } else {
+                                                // If 'static' was selected alone, remove it when adding others
+                                                const noStatic = current.filter(c => c !== 'static');
+                                                next = [...noStatic, move.id];
+                                            }
+                                            handleUpdateSettings({ cameraMovements: next as any });
+                                        }}
+                                        className={`px-2 py-1 text-[10px] rounded border transition-colors ${isSelected
+                                            ? 'bg-orange-500/20 border-orange-500/50 text-orange-400'
+                                            : 'bg-stone-800 border-stone-700 text-stone-400 hover:text-stone-300'
+                                            }`}
+                                    >
+                                        {move.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
-                    <div className="flex-1 flex items-center justify-center p-8 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed opacity-100">
+                    <div className="flex-1 overflow-y-auto flex items-start justify-center p-8 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed opacity-100">
                         {scenes.length > 0 ? (
                             <div className={
                                 project.settings.aspectRatio === '9:16'
@@ -525,7 +737,7 @@ export default function ProjectPage() {
                                     compositionWidth={project.settings.aspectRatio === '9:16' ? 1080 : 1920}
                                     compositionHeight={project.settings.aspectRatio === '9:16' ? 1920 : 1080}
                                     fps={30}
-                                    durationInFrames={Math.ceil(scenes.filter(s => s.status === 'ready').reduce((sum, s) => sum + (s.duration || 5), 0) * 30) || 150}
+                                    durationInFrames={scenes.filter(s => s.status === 'ready').reduce((acc, s) => acc + Math.ceil((s.duration || 5) * 30), 0) || 150}
                                     style={{
                                         width: '100%',
                                         height: '100%',
@@ -555,18 +767,11 @@ export default function ProjectPage() {
                             </div>
                         )}
 
-                        {/* Editor Action */}
-                        {project.status === 'done' && (
-                            <div className="absolute top-8 right-8 animate-in fade-in zoom-in duration-500">
-                                <button className="px-6 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold rounded-lg shadow-lg hover:shadow-orange-500/20 transition-all flex items-center gap-2">
-                                    <Wand2 size={16} /> Enter Editor
-                                </button>
-                            </div>
-                        )}
+
                     </div>
                     {/* Bottom Metadata/Controls if needed */}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

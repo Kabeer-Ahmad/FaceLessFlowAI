@@ -2,14 +2,15 @@ export type ProjectApi = {
     id: string;
     user_id: string;
     script: string;
-    status: 'draft' | 'generating' | 'done';
+    status: 'draft' | 'generating' | 'rendering' | 'done' | 'error';
     settings: ProjectSettings;
     created_at: string;
+    video_url?: string | null;
 };
 
 export type ProjectSettings = {
     aspectRatio: '16:9' | '9:16' | '1:1';
-    visualStyle: 'zen' | 'normal' | 'stick' | 'health' | 'cartoon' | 'art';
+    visualStyle: 'zen' | 'normal' | 'stick' | 'health' | 'cartoon' | 'art' | 'stock_natural';
     imageModel: 'fal' | 'gemini' | 'runware';  // Renamed from imageProvider for clarity or alias? user said "image generator". Let's stick to imageProvider to match Python script logic if possible, but valid types are key.
     audioVoice: string;
     disclaimerEnabled: boolean;
@@ -21,10 +22,17 @@ export type ProjectSettings = {
         animation: 'none' | 'typewriter' | 'fade-in' | 'slide-up' | 'bounce';
         strokeWidth: 'thin' | 'medium' | 'thick' | 'bold';
     };
+    audioWave: {
+        enabled: boolean;
+        position: 'bottom' | 'center' | 'top' | 'mid-bottom';
+        style: 'bars' | 'wave' | 'round';
+        color: string;
+    };
     transitions: {
         mode: 'random' | 'specific';
         type: 'fadein' | 'crossfade' | 'white_flash' | 'camera_flash' | 'none';
     };
+    cameraMovements?: ('zoom_in' | 'zoom_out' | 'pan_left' | 'pan_right' | 'pan_up' | 'pan_down' | 'static')[];
 };
 
 export type SceneApi = {
@@ -38,4 +46,6 @@ export type SceneApi = {
     duration: number | null;
     status: 'pending' | 'ready' | 'error';
     visual_style?: string | null;
+    media_type?: 'image' | 'video';
+    attribution?: string | null;
 };

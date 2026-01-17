@@ -33,8 +33,10 @@ export const RemotionRoot: React.FC = () => {
                     }
                 }}
                 calculateMetadata={({ props }) => {
-                    // Calculate total duration based on scenes
-                    const totalDuration = props.scenes.reduce((acc, scene) => acc + (scene.duration || 5), 0);
+                    // Calculate total duration based on individual scene frames to prevent rounding errors
+                    const totalFrames = props.scenes.reduce((acc, scene) => {
+                        return acc + Math.ceil((scene.duration || 5) * 30);
+                    }, 0);
 
                     // Calculate dimensions based on aspect ratio
                     const isPortrait = props.settings.aspectRatio === '9:16';
@@ -42,7 +44,7 @@ export const RemotionRoot: React.FC = () => {
                     const height = isPortrait ? 1920 : 1080;
 
                     return {
-                        durationInFrames: Math.ceil(totalDuration * 30),
+                        durationInFrames: totalFrames || 150, // Default to 150 if 0
                         width,
                         height,
                     };

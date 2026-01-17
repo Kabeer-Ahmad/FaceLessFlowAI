@@ -71,9 +71,8 @@ export async function generateScene(
         try {
 
             // 4. Generate Simple Scene Description (OpenAI)
-            // Base instructions from Python script
             const baseInstructions = `You are a creative visual director. For each sentence below, keeping context of the previous sentences in mind, create ONE simple image prompt that directly represents the sentence visually. 
-
+            
 RULES:
 - Use clear, concrete objects, people, and actions
 - Do NOT explain, do NOT add extra ideas beyond the sentence
@@ -110,13 +109,13 @@ Output format: Return ONLY a valid JSON array of strings, containing exactly one
                 simplePrompt = promptResponse.choices[0].message.content || text;
             }
 
-            // 4. Build Full Styled Prompt (Ported from build_full_prompts)
+            // 5. Build Full Styled Prompt
             const styleMode = settings.visualStyle;
             let styleDesc = "";
             let subjectDesc = "";
             let negativePrompt = "";
 
-            if (styleMode === "normal") {
+            if (styleMode === "normal" || styleMode === "stock_natural") {
                 styleDesc = "Style: Cinematic, photorealistic, 8k, everyday life, humanistic, natural lighting.";
                 subjectDesc = "Subject: Modern everyday life or general cinematic visuals.";
                 negativePrompt = "text, logos, writing, letters, words, watermarks";
@@ -144,9 +143,7 @@ Output format: Return ONLY a valid JSON array of strings, containing exactly one
 
             const fullPrompt = `${simplePrompt} ${styleDesc} ${subjectDesc} NO TEXT IN THE IMAGE. Negative: ${negativePrompt}`;
 
-            // 4. Generate Audio (Minimax)
-            // Resolve Voice ID using constants
-            // Priority: 1. Direct ID match (if user sent raw ID) 2. Mapped name match 3. Default
+            // 6. Generate Audio (Minimax)
             let targetVoiceId = settings.audioVoice;
             if (VOICE_ID_MAP[settings.audioVoice]) {
                 targetVoiceId = VOICE_ID_MAP[settings.audioVoice];
@@ -154,7 +151,7 @@ Output format: Return ONLY a valid JSON array of strings, containing exactly one
 
             console.log(`Generating Audio with Voice ID: ${targetVoiceId}`);
             let audioUrl = "";
-            let audioDuration = 5; // Default duration
+            let audioDuration = 5;
             try {
                 const audioResult = await generateMinimaxAudio(text, targetVoiceId, projectId, sceneIndex);
                 audioUrl = audioResult.url;
@@ -164,25 +161,60 @@ Output format: Return ONLY a valid JSON array of strings, containing exactly one
                 throw new Error(`Audio Gen Failed: ${e.message}`);
             }
 
-            // 5. Generate Image
-            console.log(`Generating Image with Model: ${settings.imageModel || 'fal'}`);
+            // 7. Check for Stock Video (Stock+AI_Natural Mode)
+            let mediaType: 'image' | 'video' = 'image';
+            let attribution: string | null = null;
+            let stockVideoUrl: string | null = null;
             let imageUrl = "";
-            try {
-                if (settings.imageModel === 'gemini') {
-                    imageUrl = await generateGeminiImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio);
-                } else if (settings.imageModel === 'runware') {
-                    imageUrl = await generateRunwareImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio);
-                } else {
-                    // Default to Fal
-                    imageUrl = await generateFalImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio);
+
+            if (settings.visualStyle === 'stock_natural' && (sceneIndex % 2 === 0)) {
+                // Check usage limit (200 stock videos per project)
+                const { count } = await supabase
+                    .from('scenes')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('project_id', projectId)
+                    .eq('media_type', 'video');
+
+                if ((count || 0) < 200) {
+                    // Try to fetch stock video
+                    console.log(`Attempting to fetch Pexels video for: "${simplePrompt}"`);
+                    const { searchPexelsVideo } = await import('@/lib/pexels');
+                    const orientation = settings.aspectRatio === '9:16' ? 'portrait' : 'landscape';
+                    const pexelsResult = await searchPexelsVideo(simplePrompt, orientation);
+
+                    if (pexelsResult) {
+                        console.log(`Found Pexels video: ${pexelsResult.url}`);
+                        stockVideoUrl = pexelsResult.url;
+                        mediaType = 'video';
+                        attribution = pexelsResult.attribution;
+                    } else {
+                        console.log("No Pexels video found, falling back to AI image.");
+                    }
                 }
-            } catch (e: any) {
-                console.error("Image Generation Failed:", e);
-                throw new Error(`Image Gen Failed: ${e.message}`);
             }
 
+            // 8. Generate Image or Use Stock
+            if (mediaType === 'image') {
+                console.log(`Generating Image with Model: ${settings.imageModel || 'fal'}`);
+                try {
+                    if (settings.imageModel === 'gemini') {
+                        imageUrl = await generateGeminiImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio);
+                    } else if (settings.imageModel === 'runware') {
+                        imageUrl = await generateRunwareImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio);
+                    } else {
+                        // Default to Fal
+                        imageUrl = await generateFalImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio);
+                    }
+                } catch (e: any) {
+                    console.error("Image Generation Failed:", e);
+                    throw new Error(`Image Gen Failed: ${e.message}`);
+                }
+            } else {
+                // Use stock video as the "image_url" (visual asset)
+                imageUrl = stockVideoUrl!;
+            }
 
-            // 8. Update Scene to Ready (was inserted as pending earlier)
+            // 9. Update Scene to Ready
             const { error: updateError } = await supabase
                 .from('scenes')
                 .update({
@@ -190,18 +222,32 @@ Output format: Return ONLY a valid JSON array of strings, containing exactly one
                     image_url: imageUrl,
                     audio_url: audioUrl,
                     duration: audioDuration,
-                    status: 'ready'
+                    status: 'ready',
+                    media_type: mediaType,
+                    attribution: attribution
                 })
                 .eq('id', newScene.id);
 
             if (updateError) throw updateError;
 
-            // 9. Deduct Credit
+            // 10. Deduct Credit
             console.log(`Deducting credit for ${userId}`);
             const { error: rpcError } = await supabase.rpc('decrement_credits', { user_id: userId, amount: 1 });
             if (rpcError) throw rpcError;
 
-            return { success: true, scene: { ...newScene, status: 'ready', image_url: imageUrl, audio_url: audioUrl, duration: audioDuration, prompt: fullPrompt } };
+            return {
+                success: true,
+                scene: {
+                    ...newScene,
+                    status: 'ready',
+                    image_url: imageUrl,
+                    audio_url: audioUrl,
+                    duration: audioDuration,
+                    prompt: fullPrompt,
+                    media_type: mediaType,
+                    attribution
+                }
+            };
 
         } catch (genError: any) {
             console.error("Scene Generation Failed:", genError);

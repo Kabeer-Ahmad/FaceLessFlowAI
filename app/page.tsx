@@ -70,6 +70,12 @@ export default function Home() {
             animation: 'typewriter',
             strokeWidth: 'medium'
         },
+        audioWave: {
+            enabled: false,
+            position: 'bottom',
+            style: 'bars',
+            color: '#ffffff'
+        },
         transitions: { mode: 'random', type: 'fadein' }
     });
 
@@ -191,6 +197,7 @@ export default function Home() {
                                         <option value="cartoon">Cartoon / Vector</option>
                                         <option value="health">Medical / Health</option>
                                         <option value="art">Pop Art / Retro</option>
+                                        <option value="stock_natural">Stock + AI (Natural)</option>
                                     </select>
                                 </div>
 

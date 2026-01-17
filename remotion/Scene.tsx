@@ -1,5 +1,6 @@
-import { AbsoluteFill, Img, useCurrentFrame, useVideoConfig, interpolate, Easing, Audio } from 'remotion';
+import { AbsoluteFill, Img, Video, useCurrentFrame, useVideoConfig, interpolate, Easing, Audio } from 'remotion';
 import { SceneApi, ProjectSettings } from '../types';
+import { AudioWave } from './AudioWave';
 
 type Props = {
     scene: SceneApi;
@@ -46,31 +47,61 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
         }
     };
 
-    // Ken Burns Effect (Slow Zoom)
-    const scale = interpolate(
-        frame,
-        [0, durationFrames],
-        [1, 1.15], // Zoom from 100% to 115%
-        { easing: Easing.bezier(0.25, 1, 0.5, 1) }
-    );
+    // Camera Movement Logic
+    const movements = settings.cameraMovements || ['zoom_in'];
+    const movementType = movements[scene.order_index % movements.length];
 
-    // Slight Pan (Random direction simulation using order_index as seed logic)
-    // Simple pan right for now
-    const translateX = interpolate(
-        frame,
-        [0, durationFrames],
-        [0, -20]
-    );
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+
+    switch (movementType) {
+        case 'zoom_in':
+            scale = interpolate(frame, [0, durationFrames], [1, 1.15], { easing: Easing.bezier(0.25, 1, 0.5, 1) });
+            break;
+        case 'zoom_out':
+            scale = interpolate(frame, [0, durationFrames], [1.15, 1], { easing: Easing.bezier(0.25, 1, 0.5, 1) });
+            break;
+        case 'pan_left':
+            scale = 1.15;
+            translateX = interpolate(frame, [0, durationFrames], [0, -40]);
+            break;
+        case 'pan_right':
+            scale = 1.15;
+            translateX = interpolate(frame, [0, durationFrames], [-40, 0]);
+            break;
+        case 'pan_up':
+            scale = 1.15;
+            translateY = interpolate(frame, [0, durationFrames], [0, -40]);
+            break;
+        case 'pan_down':
+            scale = 1.15;
+            translateY = interpolate(frame, [0, durationFrames], [-40, 0]);
+            break;
+        case 'static':
+        default:
+            scale = 1;
+            break;
+    }
 
     return (
         <AbsoluteFill style={{ overflow: 'hidden', ...getTransitionStyle() }}>
             {/* Background Image with Ken Burns */}
             {scene.image_url ? (
-                <AbsoluteFill style={{ transform: `scale(${scale}) translateX(${translateX}px)` }}>
-                    <Img
-                        src={scene.image_url}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
+                <AbsoluteFill style={{ transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)` }}>
+                    {(scene.media_type === 'video' || scene.image_url.includes('.mp4')) ? (
+                        <Video
+                            src={scene.image_url}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            muted={true}
+                            loop
+                        />
+                    ) : (
+                        <Img
+                            src={scene.image_url}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                    )}
                 </AbsoluteFill>
             ) : (
                 <AbsoluteFill className="bg-gray-900 flex items-center justify-center">
@@ -84,6 +115,16 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
                     src={scene.audio_url}
                     volume={1}
                     startFrom={0}
+                />
+            )}
+
+            {/* Audio Wave Visualization */}
+            {settings.audioWave?.enabled && scene.audio_url && (
+                <AudioWave
+                    audioUrl={scene.audio_url}
+                    style={settings.audioWave.style}
+                    position={settings.audioWave.position}
+                    color={settings.audioWave.color}
                 />
             )}
 

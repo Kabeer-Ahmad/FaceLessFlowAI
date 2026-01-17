@@ -30,16 +30,16 @@ export async function deleteProject(projectId: string) {
     }
 
     try {
-        // 3. Delete all assets by listing and removing files recursively
-        console.log(`Deleting storage files for project: ${projectId}`);
+        console.log(`Starting deletion for project: ${projectId}`);
 
-        // Helper function to recursively list all files
-        const listAllFiles = async (path: string): Promise<string[]> => {
+        // Helper function to recursively list all files in a specific bucket
+        const listAllFiles = async (bucket: string, path: string): Promise<string[]> => {
             const files: string[] = [];
-            const { data, error } = await supabaseAdmin.storage.from('assets').list(path);
+            const { data, error } = await supabaseAdmin.storage.from(bucket).list(path);
 
             if (error) {
-                console.error(`Error listing ${path}:`, error);
+                // If bucket doesn't exist or other error, just log and return empty to continue flow
+                console.error(`Error listing ${path} in ${bucket} (might be empty/missing):`, error.message);
                 return files;
             }
 
@@ -50,7 +50,7 @@ export async function deleteProject(projectId: string) {
                     if (item.id) { // It's a file
                         files.push(fullPath);
                     } else { // It might be a folder, try to list it
-                        const subFiles = await listAllFiles(fullPath);
+                        const subFiles = await listAllFiles(bucket, fullPath);
                         files.push(...subFiles);
                     }
                 }
@@ -59,34 +59,42 @@ export async function deleteProject(projectId: string) {
             return files;
         };
 
-        // List all files in the project folder
-        const filesToDelete = await listAllFiles(projectId);
+        // Generic delete helper
+        const deleteFromBucket = async (bucket: string, path: string) => {
+            console.log(`Scanning bucket '${bucket}' for path: ${path}`);
+            const filesToDelete = await listAllFiles(bucket, path);
 
-        console.log(`Found ${filesToDelete.length} files to delete:`, filesToDelete);
+            console.log(`Found ${filesToDelete.length} files to delete in '${bucket}':`, filesToDelete);
 
-        if (filesToDelete.length > 0) {
-            // Delete files in batches (Supabase has a limit)
-            const batchSize = 100;
-            for (let i = 0; i < filesToDelete.length; i += batchSize) {
-                const batch = filesToDelete.slice(i, i + batchSize);
-                const { error: deleteError } = await supabaseAdmin
-                    .storage
-                    .from('assets')
-                    .remove(batch);
+            if (filesToDelete.length > 0) {
+                // Delete files in batches (Supabase has a limit)
+                const batchSize = 100;
+                for (let i = 0; i < filesToDelete.length; i += batchSize) {
+                    const batch = filesToDelete.slice(i, i + batchSize);
+                    const { error: deleteError } = await supabaseAdmin
+                        .storage
+                        .from(bucket)
+                        .remove(batch);
 
-                if (deleteError) {
-                    console.error(`Error deleting batch ${i}-${i + batch.length}:`, deleteError);
-                } else {
-                    console.log(`Deleted batch ${i}-${i + batch.length} (${batch.length} files)`);
+                    if (deleteError) {
+                        console.error(`Error deleting batch from ${bucket}:`, deleteError);
+                    } else {
+                        console.log(`Deleted ${batch.length} files from ${bucket}`);
+                    }
                 }
+            } else {
+                console.log(`No files found in '${bucket}' folder '${path}'`);
             }
+        };
 
-            console.log(`Successfully deleted all ${filesToDelete.length} files from storage`);
-        } else {
-            console.log(`No files found for project ${projectId}`);
-        }
+        // 3. Delete from ASSETS bucket (images, audio)
+        await deleteFromBucket('assets', projectId);
 
-        // 4. Delete Project (Cascade should remove scenes)
+        // 4. Delete from PROJECTS bucket (rendered videos)
+        // Renderer stores video as: {projectId}/video-{timestamp}.mp4
+        await deleteFromBucket('projects', projectId);
+
+        // 5. Delete Project Record (Cascade should remove scenes)
         // Using admin client to bypass any potential RLS issues with delete policy
         const { error: deleteError } = await supabaseAdmin
             .from('projects')
