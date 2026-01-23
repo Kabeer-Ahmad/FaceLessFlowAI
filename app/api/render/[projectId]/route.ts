@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-
-const RENDERER_URL = 'https://stylique-facelessflow-renderer.hf.space';
+import { renderMediaOnLambda } from '@remotion/lambda/client';
+import { region } from '../../../../remotion/lambda/config';
 
 export async function GET(
     request: NextRequest,
@@ -19,7 +19,7 @@ export async function GET(
     // 2. Verify Ownership & Get Project Data
     const { data: project, error: projectError } = await supabase
         .from('projects')
-        .select('*, user_id')
+        .select('*')
         .eq('id', projectId)
         .single();
 
@@ -40,48 +40,63 @@ export async function GET(
     }
 
     // 4. Update Status to 'rendering'
-    const { error: updateError } = await supabase
-        .from('projects')
-        .update({ status: 'rendering' })
-        .eq('id', projectId);
-
-    if (updateError) {
-        return NextResponse.json({ error: `Failed to update status: ${updateError.message}` }, { status: 500 });
-    }
+    await supabase.from('projects').update({ status: 'rendering' }).eq('id', projectId);
 
     try {
-        console.log(`[Render API] Calling HuggingFace Space for project ${projectId}`);
+        console.log(`[Render API] Triggering AWS Lambda for project ${projectId}`);
 
-        // Call HuggingFace Space renderer
-        const response = await fetch(`${RENDERER_URL}/render`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                projectId, // Needed for async update
-                scenes,
-                settings: project.settings
-            }),
-        });
+        const functionName = process.env.REMOTION_AWS_FUNCTION_NAME;
+        const serveUrl = process.env.REMOTION_SERVE_URL;
 
-        if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`Renderer trigger failed: ${error}`);
+        if (!functionName || !serveUrl) {
+            throw new Error('AWS Lambda configuration missing (REMOTION_AWS_FUNCTION_NAME or REMOTION_SERVE_URL)');
         }
 
-        return NextResponse.json({ success: true, message: 'Rendering started' });
+        const { renderId, bucketName } = await renderMediaOnLambda({
+            region: (process.env.REMOTION_AWS_REGION as any) || region,
+            functionName,
+            serveUrl,
+            composition: 'MirzaMain',
+            inputProps: {
+                scenes,
+                settings: project.settings,
+                projectId // Critical for Webhook correlation
+            },
+            codec: 'h264',
+            framesPerLambda: 200, // Reduced concurrency to avoid Rate Exceeded errors on new accounts
+            downloadBehavior: {
+                type: 'download',
+                fileName: null,
+            },
+            webhook: {
+                url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://mirza-web.vercel.app'}/api/webhook/remotion`,
+                secret: process.env.REMOTION_WEBHOOK_SECRET || 'temp_secret',
+            },
+        });
+
+        console.log(`[Render API] Started Render: ${renderId} on bucket ${bucketName}`);
+
+        // Save renderId to project settings so we can poll progress
+        // We use settings.renderId as a temporary storage place
+        await supabase.from('projects').update({
+            status: 'rendering',
+            settings: {
+                ...project.settings,
+                renderId,
+                bucketName
+            }
+        }).eq('id', projectId);
+
+        return NextResponse.json({
+            success: true,
+            message: 'Rendering started on AWS Lambda',
+            renderId
+        });
 
     } catch (error: any) {
         console.error('[Render API] Error:', error);
 
-        // Revert status to error so user can try again
-        await supabase
-            .from('projects')
-            .update({ status: 'error' })
-            .eq('id', projectId);
-
+        await supabase.from('projects').update({ status: 'error' }).eq('id', projectId);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-

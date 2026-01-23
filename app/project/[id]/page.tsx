@@ -12,6 +12,7 @@ import { Player } from '@remotion/player';
 import { MainComposition } from '@/remotion/MainComposition';
 import { ChevronLeft, Play, LayoutList, Image as ImageIcon, Music, Type, AlertCircle, Sparkles, ChevronDown, Loader2, Wand2, Settings, RefreshCw, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import RenderingModal from '@/components/RenderingModal';
 
 export default function ProjectPage() {
     const params = useParams();
@@ -30,6 +31,8 @@ export default function ProjectPage() {
     const [regeneratingAudio, setRegeneratingAudio] = useState<string | null>(null);
     const [regeneratingImage, setRegeneratingImage] = useState<string | null>(null);
     const [rendering, setRendering] = useState(false);
+    const [renderProgress, setRenderProgress] = useState<any>(null);
+    const [showRenderModal, setShowRenderModal] = useState(false);
     const playerRef = useRef<any>(null);
 
     // Load Project Data
@@ -87,15 +90,37 @@ export default function ProjectPage() {
                 })
             .subscribe();
 
+        // POLL FOR RENDER PROGRESS
+        let progressInterval: NodeJS.Timeout;
+        if (project?.status === 'rendering') {
+            setRendering(true);
+            setShowRenderModal(true);
+            progressInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/render/${projectId}/status`);
+                    const data = await res.json();
+
+                    if (data.status === 'done' || data.status === 'error') {
+                        clearInterval(progressInterval);
+                    }
+
+                    if (data.progress !== undefined) {
+                        setRenderProgress(data);
+                    }
+                } catch (e) {
+                    console.error("Polling error", e);
+                }
+            }, 3000);
+        }
+
         return () => {
             supabase.removeChannel(channel);
             supabase.removeChannel(projectChannel);
+            if (progressInterval) clearInterval(progressInterval);
         };
-    }, [projectId, router]);
+    }, [projectId, router, project?.status]);
 
     const [generationLog, setGenerationLog] = useState<string>("");
-
-    // ... (rest of states)
 
     const handleGenerate = async () => {
         if (!project) return;
@@ -139,7 +164,6 @@ export default function ProjectPage() {
                 }
 
                 // OPTIMISTIC UPDATE: Add the new scene to state immediately
-                // This prevents the "empty state" issue if realtime is slow
                 setScenes(prev => {
                     const existing = prev.find(s => s.id === result.scene!.id);
                     if (existing) return prev;
@@ -153,11 +177,9 @@ export default function ProjectPage() {
         } catch (e) {
             console.error(e);
             setGenerationLog("Generation failed due to an error.");
-            setGenerationLog("Generation failed due to an error.");
             toast.error("Generation failed");
         } finally {
             setGenerating(false);
-            // Clear log after a delay
             setTimeout(() => setGenerationLog(""), 5000);
         }
     };
@@ -167,7 +189,6 @@ export default function ProjectPage() {
 
         const result = await updateProjectSettings(projectId, newSettings);
         if (result.success && result.settings) {
-            setProject({ ...project, settings: result.settings });
             setProject({ ...project, settings: result.settings });
         } else {
             toast.error(`Failed to update settings: ${result.error}`);
@@ -216,6 +237,7 @@ export default function ProjectPage() {
     const handleExportVideo = async () => {
         if (!project) return;
         setRendering(true);
+        setShowRenderModal(true);
         try {
             // Call API route to trigger async render
             const response = await fetch(`/api/render/${projectId}`);
@@ -231,7 +253,7 @@ export default function ProjectPage() {
 
         } catch (e: any) {
             toast.error(`Export error: ${e.message}`);
-            setRendering(false); // Only reset if error. If success, let it stay 'rendering' until realtime update comes.
+            setRendering(false);
         }
     };
 
@@ -283,10 +305,18 @@ export default function ProjectPage() {
                             className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
                         >
                             {rendering || project.status === 'rendering' ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin" />
-                                    Rendering...
-                                </>
+                                <div className="flex flex-col items-start text-xs">
+                                    <div className="flex items-center gap-2">
+                                        <Loader2 size={16} className="animate-spin" />
+                                        <span>Rendering on AWS Lambda...</span>
+                                    </div>
+                                    {renderProgress && renderProgress.progress > 0 && (
+                                        <span className="text-white/70 ml-6 text-[10px]">
+                                            {Math.round(renderProgress.progress * 100)}%
+                                            {renderProgress.details?.framesRendered ? ` (${renderProgress.details.framesRendered} frames)` : ''}
+                                        </span>
+                                    )}
+                                </div>
                             ) : (
                                 <>
                                     <Download size={16} />
@@ -315,8 +345,6 @@ export default function ProjectPage() {
                         </div>
                         <p className="text-stone-300 font-serif leading-relaxed opacity-80 max-w-4xl">{project.script}</p>
                     </div>
-
-
                 </div>
             )}
 
@@ -772,6 +800,17 @@ export default function ProjectPage() {
                     {/* Bottom Metadata/Controls if needed */}
                 </div>
             </div>
-        </div >
+
+            <RenderingModal
+                isOpen={showRenderModal}
+                onClose={() => setShowRenderModal(false)}
+                status={project.status as any}
+                progress={renderProgress?.progress || 0}
+                details={renderProgress?.details}
+                videoUrl={project.video_url}
+                error={renderProgress?.error}
+            />
+        </div>
     );
 }
+
