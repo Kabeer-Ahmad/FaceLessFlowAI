@@ -11,7 +11,7 @@ import { regenerateImage } from '@/actions/regenerateImage';
 import { generateHeadings } from '@/actions/generateHeadings';
 import { Player } from '@remotion/player';
 import { MainComposition } from '@/remotion/MainComposition';
-import { ChevronLeft, Play, LayoutList, Image as ImageIcon, Music, Type, AlertCircle, Sparkles, ChevronDown, Loader2, Wand2, Settings, RefreshCw, Download, X } from 'lucide-react';
+import { ChevronLeft, Play, LayoutList, Image as ImageIcon, Music, Type, AlertCircle, Sparkles, ChevronDown, Loader2, Wand2, Settings, RefreshCw, Download, X, Youtube } from 'lucide-react';
 import { toast } from 'sonner';
 import RenderingModal from '@/components/RenderingModal';
 import { useAvatarWorker } from '@/hooks/useAvatarWorker';
@@ -40,6 +40,33 @@ export default function ProjectPage() {
     const [isValidating, setIsValidating] = useState(false);
     const [isVerified, setIsVerified] = useState(false);
     const playerRef = useRef<any>(null);
+
+    // YouTube State
+    const [showYoutubeModal, setShowYoutubeModal] = useState(false);
+    const [youtubeForm, setYoutubeForm] = useState({ channel: 'www', title: '', description: '', tags: '', privacyStatus: 'private' });
+    const [youtubePublishing, setYoutubePublishing] = useState(false);
+    const [youtubeResult, setYoutubeResult] = useState<{ url?: string; error?: string } | null>(null);
+
+    const handleYoutubePublish = async () => {
+        setYoutubePublishing(true);
+        setYoutubeResult(null);
+        try {
+            const res = await fetch('/api/youtube/upload', {
+                method: 'POST',
+                body: JSON.stringify({ projectId: project?.id, ...youtubeForm }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.error || 'Upload failed');
+            setYoutubeResult({ url: data.url });
+            toast.success('Successfully published to YouTube!');
+        } catch(err: any) {
+            setYoutubeResult({ error: err.message });
+            toast.error('YouTube publish failed: ' + err.message);
+        } finally {
+            setYoutubePublishing(false);
+        }
+    };
 
     const {
         processVideo,
@@ -796,15 +823,24 @@ export default function ProjectPage() {
                             );
                         } else if (project.video_url) {
                             return (
-                                <a
-                                    href={project.video_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
-                                >
-                                    <Download size={16} />
-                                    Download Video
-                                </a>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setShowYoutubeModal(true)}
+                                        className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-500 border border-red-500/20 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                                    >
+                                        <Youtube size={16} />
+                                        Publish
+                                    </button>
+                                    <a
+                                        href={project.video_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                                    >
+                                        <Download size={16} />
+                                        Download Video
+                                    </a>
+                                </div>
                             );
                         } else {
                             return (
@@ -1177,6 +1213,72 @@ export default function ProjectPage() {
                         </div>
 
                         <div className="h-6 w-px bg-white/10"></div>
+
+                        {/* GRAPHIC SPLIT: Top Title */}
+                        {project.settings.templateMode === 'graphic_split' && project.settings.topTitle && (
+                            <>
+                                <div className="h-6 w-px bg-white/10"></div>
+                                <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Title:</span>
+                                
+                                <input
+                                    type="text"
+                                    value={project.settings.topTitle.text}
+                                    onChange={(e) => handleUpdateSettings({
+                                        topTitle: { ...project.settings.topTitle!, text: e.target.value }
+                                    })}
+                                    className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1 w-32"
+                                    placeholder="Enter title..."
+                                />
+
+                                <select
+                                    value={project.settings.topTitle.font}
+                                    onChange={(e) => handleUpdateSettings({
+                                        topTitle: { ...project.settings.topTitle!, font: e.target.value as any }
+                                    })}
+                                    className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                                >
+                                    <option value="sans">Sans</option>
+                                    <option value="serif">Serif</option>
+                                    <option value="brush">Brush</option>
+                                    <option value="helvetica">Helvetica</option>
+                                </select>
+
+                                <select
+                                    value={project.settings.topTitle.fontSize}
+                                    onChange={(e) => handleUpdateSettings({
+                                        topTitle: { ...project.settings.topTitle!, fontSize: e.target.value as any }
+                                    })}
+                                    className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                                >
+                                    <option value="small">S</option>
+                                    <option value="medium">M</option>
+                                    <option value="large">L</option>
+                                    <option value="xlarge">XL</option>
+                                </select>
+
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={project.settings.topTitle.isBold}
+                                        onChange={(e) => handleUpdateSettings({
+                                            topTitle: { ...project.settings.topTitle!, isBold: e.target.checked }
+                                        })}
+                                        className="rounded border-stone-700 bg-stone-800 text-orange-500 focus:ring-orange-500/50"
+                                    />
+                                    <span className="text-xs text-stone-300">Bold</span>
+                                </label>
+
+                                <input
+                                    type="color"
+                                    value={project.settings.topTitle.color}
+                                    onChange={(e) => handleUpdateSettings({
+                                        topTitle: { ...project.settings.topTitle!, color: e.target.value }
+                                    })}
+                                    className="h-6 w-6 rounded cursor-pointer bg-transparent border-none p-0"
+                                />
+                                <div className="h-6 w-px bg-white/10"></div>
+                            </>
+                        )}
 
                         {/* Headings Toggle */}
                         <div className="flex items-center gap-2">
@@ -1552,6 +1654,115 @@ export default function ProjectPage() {
                         <div className="mt-4 text-stone-400 text-xs text-center pointer-events-auto">
                             Click anywhere close • {previewImage.url2 ? 'Scroll to view simplified' : ''}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* YouTube Publish Modal */}
+            {showYoutubeModal && (
+                <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in">
+                    <div className="bg-stone-900 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                        <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                            <Youtube size={24} className="text-red-500" />
+                            <h2 className="text-lg font-bold text-white">Publish to YouTube</h2>
+                        </div>
+                        
+                        {youtubeResult?.url ? (
+                            <div className="py-8 text-center space-y-4">
+                                <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
+                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </div>
+                                <p className="text-white font-medium">Video uploaded successfully!</p>
+                                <a href={youtubeResult.url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 underline text-sm block">
+                                    {youtubeResult.url}
+                                </a>
+                                <button onClick={() => setShowYoutubeModal(false)} className="mt-4 px-6 py-2 bg-stone-800 hover:bg-stone-700 text-white rounded-lg w-full transition-colors font-medium">Close</button>
+                            </div>
+                        ) : (
+                            <div className="space-y-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-stone-400 uppercase tracking-wider font-semibold">Channel</label>
+                                    <select 
+                                        value={youtubeForm.channel} 
+                                        onChange={e => setYoutubeForm({...youtubeForm, channel: e.target.value})}
+                                        className="w-full bg-stone-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-red-500/50"
+                                    >
+                                        <option value="www">Word With Wise</option>
+                                        <option value="james">James Health</option>
+                                    </select>
+                                </div>
+                                
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-stone-400 uppercase tracking-wider font-semibold">Title</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="Video Title"
+                                        value={youtubeForm.title} 
+                                        onChange={e => setYoutubeForm({...youtubeForm, title: e.target.value})}
+                                        className="w-full bg-stone-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-red-500/50"
+                                    />
+                                    <p className="text-[10px] text-stone-500">Leave blank to use the first line of the script.</p>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-stone-400 uppercase tracking-wider font-semibold">Description</label>
+                                    <textarea 
+                                        placeholder="Video Description"
+                                        value={youtubeForm.description} 
+                                        onChange={e => setYoutubeForm({...youtubeForm, description: e.target.value})}
+                                        className="w-full h-24 bg-stone-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-red-500/50 resize-y"
+                                    />
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <div className="space-y-1.5 flex-1">
+                                        <label className="text-xs text-stone-400 uppercase tracking-wider font-semibold">Tags</label>
+                                        <input 
+                                            type="text"
+                                            placeholder="tag1, tag2"
+                                            value={youtubeForm.tags} 
+                                            onChange={e => setYoutubeForm({...youtubeForm, tags: e.target.value})}
+                                            className="w-full bg-stone-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-red-500/50"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5 w-[35%]">
+                                        <label className="text-xs text-stone-400 uppercase tracking-wider font-semibold">Privacy</label>
+                                        <select 
+                                            value={youtubeForm.privacyStatus} 
+                                            onChange={e => setYoutubeForm({...youtubeForm, privacyStatus: e.target.value})}
+                                            className="w-full bg-stone-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-red-500/50"
+                                        >
+                                            <option value="private">Private</option>
+                                            <option value="unlisted">Unlisted</option>
+                                            <option value="public">Public</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {youtubeResult?.error && (
+                                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-xs rounded-lg break-words">
+                                        {youtubeResult.error}
+                                    </div>
+                                )}
+
+                                <div className="flex justify-end gap-2 pt-4 border-t border-white/10">
+                                    <button 
+                                        onClick={() => setShowYoutubeModal(false)}
+                                        disabled={youtubePublishing}
+                                        className="px-4 py-2 text-stone-400 hover:text-white transition-colors text-sm font-medium"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={handleYoutubePublish}
+                                        disabled={youtubePublishing || (!youtubeForm.title && !project?.script)}
+                                        className="px-6 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all text-sm font-medium flex items-center gap-2 shadow-lg shadow-red-500/20 hover:shadow-red-500/40"
+                                    >
+                                        {youtubePublishing ? <><Loader2 size={14} className="animate-spin" /> Uploading...</> : 'Upload Now'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

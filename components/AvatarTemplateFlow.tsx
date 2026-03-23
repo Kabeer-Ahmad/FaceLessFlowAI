@@ -10,7 +10,7 @@ import { createTemplateProject } from '@/actions/createTemplateProject';
 import { ProjectSettings } from '@/types';
 import { useAvatarWorker } from '@/hooks/useAvatarWorker';
 
-export default function AvatarTemplateFlow({ onBack }: { onBack: () => void }) {
+export default function AvatarTemplateFlow({ onBack, templateType = 'avatar_interleave' }: { onBack: () => void, templateType?: 'avatar_interleave' }) {
     const router = useRouter();
     const [status, setStatus] = useState<'idle' | 'processing' | 'error' | 'success'>('idle');
     const [progressStatus, setProgressStatus] = useState('');
@@ -25,6 +25,7 @@ export default function AvatarTemplateFlow({ onBack }: { onBack: () => void }) {
     } = useAvatarWorker();
     const [settings, setSettings] = useState<ProjectSettings>({
         aspectRatio: '16:9',
+        templateMode: templateType,
         visualStyle: 'reference_image',
         referenceCharacter: 'grandpa',
         imageModel: 'runware',
@@ -132,7 +133,9 @@ export default function AvatarTemplateFlow({ onBack }: { onBack: () => void }) {
                     <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-700 text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-orange-900/30">
                         <Sparkles size={28} />
                     </div>
-                    <h2 className="text-3xl font-bold font-serif mb-3">Avatar Interleave</h2>
+                    <h2 className="text-3xl font-bold font-serif mb-3">
+                        Avatar Interleave
+                    </h2>
                     <p className="text-stone-400 text-sm max-w-md mx-auto leading-relaxed">
                         Upload your raw monologue video. We'll utilize our server-side AI to transcribe your speech and slice the video into semantic scenes, ready to interweave with generated B-roll.
                     </p>
@@ -182,6 +185,7 @@ export default function AvatarTemplateFlow({ onBack }: { onBack: () => void }) {
                                         <option value="grandma_finetuned">Grandma Finetuned</option>
                                         <option value="dark_animated">Dark Animated (Psychology)</option>
                                         <option value="reference_image">Reference Character</option>
+                                        <option value="graphic_split_style">Graphic Split (Transparent)</option>
                                     </select>
                                 </div>
 

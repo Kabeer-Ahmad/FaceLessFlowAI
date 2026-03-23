@@ -310,7 +310,7 @@ export async function generateFalImage(prompt: string, projectId: string, sceneI
     );
 }
 
-export async function generateRunwareImage(prompt: string, projectId: string, sceneIndex: number, aspectRatio: string = '16:9', modelId?: string, referenceImageId?: string): Promise<string> {
+export async function generateRunwareImage(prompt: string, projectId: string, sceneIndex: number, aspectRatio: string = '16:9', modelId?: string, referenceImageId?: string, removeBackground?: boolean): Promise<string> {
     // Use retry wrapper with key rotation
     return await keyRotation.withRetry(
         async (apiKey) => {
@@ -417,14 +417,36 @@ export async function generateRunwareImage(prompt: string, projectId: string, sc
             });
 
             if (results && results.length > 0 && results[0].imageURL) {
-                const finalUrl = results[0].imageURL;
+                let finalUrl = results[0].imageURL;
+                const imageUUID = results[0].imageUUID;
+
+                if (removeBackground && imageUUID) {
+                    console.log(`Removing background for imageUUID: ${imageUUID}`);
+                    try {
+                        const bgResult = await runware.removeImageBackground({
+                            inputImage: imageUUID,
+                            postBgColor: "FFFFFF00", // Transparent
+                            returnOnlyForeground: true,
+                            outputType: "URL",
+                            outputFormat: "WEBP"
+                        } as any);
+                        if (bgResult && bgResult.imageURL) {
+                            finalUrl = bgResult.imageURL;
+                            console.log(`Background removed successfully, new URL: ${finalUrl}`);
+                        }
+                    } catch (bgError) {
+                        console.error("Runware Background Removal Failed, falling back to original image:", bgError);
+                        // Continue with original image
+                    }
+                }
+
                 const imgResp = await fetch(finalUrl);
                 const imgBuffer = await imgResp.arrayBuffer();
                 return await uploadToStorage(
                     Buffer.from(imgBuffer),
                     projectId,
-                    `images/scene_${sceneIndex}_${Date.now()}.jpg`,
-                    'image/jpeg'
+                    removeBackground ? `images/scene_${sceneIndex}_${Date.now()}.webp` : `images/scene_${sceneIndex}_${Date.now()}.jpg`,
+                    removeBackground ? 'image/webp' : 'image/jpeg'
                 );
             }
             throw new Error("No image returned from Runware");

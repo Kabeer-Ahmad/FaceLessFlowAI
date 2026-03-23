@@ -10,7 +10,15 @@ export type ProjectApi = {
 
 export type ProjectSettings = {
     aspectRatio: '16:9' | '9:16' | '1:1';
-    visualStyle: 'zen' | 'normal' | 'stick' | 'health' | 'cartoon' | 'art' | 'stock_natural' | 'clean_illustration' | 'stock_vector' | 'stock_art' | 'reference_image' | 'thick_stick_color' | 'thick_stick_bw' | 'james_finetuned' | 'grandma_finetuned' | 'dark_animated';
+    templateMode?: 'avatar_interleave' | 'graphic_split';
+    topTitle?: {
+        text: string;
+        color: string;
+        fontSize: 'small' | 'medium' | 'large' | 'xlarge';
+        font: 'helvetica' | 'serif' | 'brush';
+        isBold: boolean;
+    };
+    visualStyle: 'zen' | 'normal' | 'stick' | 'health' | 'cartoon' | 'art' | 'stock_natural' | 'clean_illustration' | 'stock_vector' | 'stock_art' | 'reference_image' | 'thick_stick_color' | 'thick_stick_bw' | 'james_finetuned' | 'grandma_finetuned' | 'dark_animated' | 'graphic_split_style';
     referenceCharacter?: 'grandpa' | 'grandma' | 'james' | 'dr_sticky';
     imageModel: 'fal' | 'gemini' | 'runware' | 'imagen' | 'replicate';  // Renamed from imageProvider for clarity or alias? user said "image generator". Let's stick to imageProvider to match Python script logic if possible, but valid types are key.
     audioVoice: string;

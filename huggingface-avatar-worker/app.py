@@ -99,12 +99,11 @@ def background_process(job_id: str, req: ProcessRequest):
                     file=audio_file,
                     model="whisper-1",
                     response_format="verbose_json",
-                    timestamp_granularities=["segment"]
+                    timestamp_granularities=["segment", "word"]
                 )
             segments = transcript.segments
             print(f"[{job_id}] Whisper analysis complete. Found {len(segments)} segments.")
         except Exception as e:
-            # Catch common JSON decoding errors from OpenAI/Network here
             print(f"[{job_id}] OpenAI/JSON Error: {traceback.format_exc()}")
             raise Exception(f"OpenAI Analysis Error: {str(e)}")
 
@@ -112,27 +111,35 @@ def background_process(job_id: str, req: ProcessRequest):
             raise Exception("No speech detected in video")
 
         # 5. Slice Video and Upload
-        print(f"[{job_id}] Step 5: Starting slice loop...")
+        print(f"[{job_id}] Step 5: Starting intelligent slice loop...")
         processed_slices = []
         total_segments = len(segments)
-        
-        # Reduced buffers to avoid repetition while maintaining clean cuts
-        BUFFER_START = 0.05
-        BUFFER_END = 0.2
         
         for i, segment in enumerate(segments):
             orig_start = segment.start
             orig_end = segment.end
             
-            # Lookahead to avoid overlapping with next segment
-            next_start = segments[i+1].start if i + 1 < total_segments else float('inf')
-            # Lookbehind to avoid overlapping with previous segment
-            prev_end = segments[i-1].end if i > 0 else 0
+            # Intelligent Midpoint Slicing:
+            # We split the silence between segments 50/50, but with safety caps.
             
-            # Apply padding but stay within boundaries of adjacent segments
-            start = max(prev_end, orig_start - BUFFER_START)
-            end = min(next_start, orig_end + BUFFER_END)
+            # 5.1 Calculate End Padding (Next Segment Gap)
+            if i + 1 < total_segments:
+                gap_next = segments[i+1].start - orig_end
+                # Split gap, ensure at least 0.05s overlap if tight, cap at 0.3s
+                end_padding = max(0.05, min(0.3, gap_next / 2))
+            else:
+                end_padding = 0.5 # Tail for the last segment
+                
+            # 5.2 Calculate Start Padding (Previous Segment Gap)
+            if i > 0:
+                gap_prev = orig_start - segments[i-1].end
+                # Split gap, ensure at least 0.05s overlap if tight, cap at 0.1s
+                start_padding = max(0.05, min(0.1, gap_prev / 2))
+            else:
+                start_padding = 0.1 # Lead-in for the first segment
             
+            start = max(0, orig_start - start_padding)
+            end = orig_end + end_padding
             text = segment.text.strip()
             duration = end - start
             
@@ -145,11 +152,14 @@ def background_process(job_id: str, req: ProcessRequest):
             output_path = temp_dir / output_filename
             
             try:
-                # Precise Slicing
+                # Precise Slicing with Audio Sync Optimization
+                # -ss before -i is fast; -t after -i is precise duration.
+                # -af aresample=async=1 ensures audio starts/ends correctly relative to the seek.
                 subprocess.run([
                     "ffmpeg", "-ss", str(start), "-i", str(video_path), "-t", str(duration), "-y",
                     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-                    "-c:a", "aac", "-b:a", "128k", "-map_metadata", "-1", "-avoid_negative_ts", "make_zero",
+                    "-c:a", "aac", "-b:a", "128k", "-af", "aresample=async=1", 
+                    "-map_metadata", "-1", "-avoid_negative_ts", "make_zero",
                     str(output_path)
                 ], check=True, capture_output=True)
             except subprocess.CalledProcessError as e:

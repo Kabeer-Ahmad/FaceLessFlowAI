@@ -270,6 +270,10 @@ No text in image.`;
                 styleDesc = "Style: Dark vintage animated background aesthetic, psychological thriller atmosphere, film noir lighting, grainy texture, muted dark colors (deep blacks, grays, dark reds), mysterious shadows, surreal and psychological symbolism, 1950s detective movie feel, high contrast, dramatic lighting.";
                 subjectDesc = "Subject: Shadowy figures, psychological concepts, abstract representations of the mind, vintage manipulation themes.";
                 negativePrompt = "bright, colorful, happy, cartoon, anime, 3d render, modern, glossy, cute, flat, vector, daylight";
+            } else if (styleMode === "graphic_split_style") {
+                styleDesc = "Style: Clean vibrant high-quality 3d vector graphic illustration, isolated subject, clear lighting. The background MUST be a single flat solid hex #00FF00 pure chroma key green screen color.";
+                subjectDesc = "Subject: highly stylized graphic representation of the concept, centered.";
+                negativePrompt = "text, background elements, scenery, patterns, shadow on background";
             } else { // zen
                 styleDesc = "Style: Cinematic, photorealistic, 8k, high-quality, beautiful, everyday life, humanistic, natural lighting.";
                 subjectDesc = "Subject: Zen Buddhist monk in orange robes/clothes, performing, explaining or doing work in normal life.";
@@ -373,7 +377,8 @@ No text in image.`;
                             ? CHARACTER_REFERENCE_MAP[settings.referenceCharacter]
                             : undefined;
 
-                        imageUrl = await generateRunwareImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio, modelId, refImageId);
+                        const removeBg = settings.templateMode === 'graphic_split';
+                        imageUrl = await generateRunwareImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio, modelId, refImageId, removeBg);
                     } else if (settings.imageModel && settings.imageModel.startsWith('jamestok:')) {
                         // James Finetuned via Runware
                         console.log(`Using custom James model: ${settings.imageModel}`);
@@ -442,8 +447,9 @@ No text in image.`;
                         const refImageId = (settings.visualStyle === 'reference_image' && settings.referenceCharacter)
                             ? CHARACTER_REFERENCE_MAP[settings.referenceCharacter]
                             : undefined;
-
-                        imageUrl2 = await generateRunwareImage(fullPrompt2, projectId, sceneIndex + 0.5, settings.aspectRatio, modelId, refImageId);
+                            
+                        const removeBg = settings.templateMode === 'graphic_split';
+                        imageUrl2 = await generateRunwareImage(fullPrompt2, projectId, sceneIndex + 0.5, settings.aspectRatio, modelId, refImageId, removeBg);
                     } else {
                         imageUrl2 = await generateFalImage(fullPrompt2, projectId, sceneIndex + 0.5, settings.aspectRatio);
                     }

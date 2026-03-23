@@ -127,6 +127,81 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
             break;
     }
 
+    const isGraphicSplit = settings.templateMode === 'graphic_split';
+
+    if (isGraphicSplit) {
+        const titleStyle = {
+            fontFamily: settings.topTitle?.font === 'brush' ? 'Brush Script MT, cursive' : settings.topTitle?.font === 'serif' ? 'Georgia, serif' : 'Helvetica, sans-serif',
+            fontSize: settings.topTitle?.fontSize === 'xlarge' ? '5rem' :
+                      settings.topTitle?.fontSize === 'large' ? '4rem' :
+                      settings.topTitle?.fontSize === 'medium' ? '3rem' : '2rem',
+            color: settings.topTitle?.color || '#ffffff',
+            fontWeight: settings.topTitle?.isBold ? 'bold' : 'normal',
+            textAlign: 'center' as const,
+            marginTop: '8%',
+            textTransform: 'uppercase' as const,
+            width: '100%',
+            position: 'absolute' as const,
+            top: 0,
+            zIndex: 10
+        };
+
+        return (
+            <AbsoluteFill style={{ overflow: 'hidden', ...getTransitionStyle() }}>
+                {/* Background */}
+                <Img src="/tmp2_back.png" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} />
+                
+                {/* Top Title */}
+                {settings.topTitle && (
+                    <div style={titleStyle}>{settings.topTitle.text}</div>
+                )}
+
+                {/* Left Graphics */}
+                <AbsoluteFill style={{ width: '50%', right: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '10%' }}>
+                    {scene.image_url && (
+                        <Img
+                            src={scene.image_url}
+                            style={{ width: '80%', height: '80%', objectFit: 'contain', 
+                                transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`
+                            }}
+                        />
+                    )}
+                </AbsoluteFill>
+
+                {/* Right Captions Container */}
+                <AbsoluteFill style={{ left: '50%', width: '50%' }}>
+                    {/* Audio */}
+                    {scene.audio_url && (
+                        <Audio src={scene.audio_url} volume={1} startFrom={0} />
+                    )}
+
+                    {/* Captions */}
+                    {settings.captions.enabled && (() => {
+                        const captionStyle = settings.captions.style || 'classic';
+                        // Reusing caption components which typically use AbsoluteFill internally.
+                        // Since this container is AbsoluteFill, it creates a positioning context correctly!
+                        if (captionStyle === 'word_pop') {
+                            const { WordByWordPop } = require('./captions/WordByWordPop');
+                            return <WordByWordPop text={scene.text} durationInSeconds={d} />;
+                        } else if (captionStyle === 'karaoke') {
+                            const { KaraokeHighlight } = require('./captions/KaraokeHighlight');
+                            return <KaraokeHighlight text={scene.text} durationInSeconds={d} color={settings.captions.color} />;
+                        } else if (captionStyle === 'mrbeast') {
+                            const { MrBeastStyle } = require('./captions/MrBeastStyle');
+                            return <MrBeastStyle text={scene.text} durationInSeconds={d} />;
+                        } else if (captionStyle === 'dark_psychology') {
+                            const { DarkPsyStyle } = require('./captions/DarkPsyStyle');
+                            return <DarkPsyStyle text={scene.text} durationInSeconds={d} />;
+                        } else {
+                            const { ClassicCaptions } = require('./captions/ClassicCaptions');
+                            return <ClassicCaptions text={scene.text} durationInSeconds={d} settings={settings} />;
+                        }
+                    })()}
+                </AbsoluteFill>
+            </AbsoluteFill>
+        );
+    }
+
     return (
         <AbsoluteFill style={{ overflow: 'hidden', ...getTransitionStyle() }}>
             {/* Background Image with Ken Burns */}
