@@ -240,13 +240,21 @@ export async function POST(
 
         } else {
             // Legacy Single Render Update
+            const newSettings = {
+                ...project.settings,
+                renderId,
+                bucketName
+            };
+            
+            // CRITICAL FIX: If we are doing a single render, clear out any stale renderParts 
+            // from previous split-render attempts so the /status polling endpoint doesn't get mistaken.
+            if ('renderParts' in newSettings) {
+                delete newSettings.renderParts;
+            }
+
             await supabase.from('projects').update({
                 status: 'rendering',
-                settings: {
-                    ...project.settings,
-                    renderId,
-                    bucketName
-                }
+                settings: newSettings
             }).eq('id', projectId);
 
             return NextResponse.json({
