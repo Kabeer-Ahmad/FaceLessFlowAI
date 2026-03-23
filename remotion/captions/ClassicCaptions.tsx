@@ -25,8 +25,10 @@ export const ClassicCaptions: React.FC<ClassicCaptionsProps> = ({ text, duration
     const { fps, width, height } = useVideoConfig();
     const durationFrames = durationInSeconds * fps;
 
-    // Split text into chunks (each chunk = max 2 lines)
-    const chunks = chunkWords(text);
+    // Split text into chunks (each chunk = max 2 lines normally, 4 lines for graphic_split)
+    // Reduce chunk size for graphic_split so it automatically sequences to the next chunk rather than cutting off
+    const wordsPerChunk = settings.templateMode === 'graphic_split' ? 15 : 12;
+    const chunks = chunkWords(text, wordsPerChunk);
     const framesPerChunk = Math.floor(durationFrames / chunks.length);
 
     // Find current chunk index
@@ -91,9 +93,9 @@ export const ClassicCaptions: React.FC<ClassicCaptionsProps> = ({ text, duration
                         return strokeMap[settings.captions.strokeWidth || 'medium'];
                     })(),
                     opacity,
-                    // Max 2 lines with ellipsis overflow (backup)
+                    // Custom line limit based on mode
                     display: '-webkit-box',
-                    WebkitLineClamp: 2,
+                    WebkitLineClamp: settings.templateMode === 'graphic_split' ? 4 : 2,
                     WebkitBoxOrient: 'vertical' as const,
                     overflow: 'hidden',
                     lineHeight: 1.3,

@@ -9,7 +9,7 @@ import { createClient } from '@/utils/supabase/server';
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { projectId, channel, title, description, tags, privacyStatus } = body;
+        const { projectId, channel, title, description, tags, privacyStatus, publishAt } = body;
 
         if (!projectId || !channel) {
             return NextResponse.json({ error: 'Missing projectId or channel' }, { status: 400 });
@@ -65,6 +65,17 @@ export async function POST(req: Request) {
 
         console.log(`[YouTube API] Starting upload to channel: ${channel}`);
         
+        // Setup API Status Object
+        const finalStatus: any = {
+            privacyStatus: privacyStatus === 'schedule' ? 'private' : (privacyStatus || 'private'),
+            selfDeclaredMadeForKids: false,
+        };
+        
+        if (privacyStatus === 'schedule' && publishAt) {
+            // YouTube API requires ISO 8601 string containing timezone offset
+            finalStatus.publishAt = new Date(publishAt).toISOString();
+        }
+
         // 6. Upload Pipeline
         const uploadRes = await youtube.videos.insert({
             part: ['snippet', 'status'],
@@ -75,10 +86,7 @@ export async function POST(req: Request) {
                     tags: tags ? tags.split(',').map((t: string) => t.trim()) : [],
                     categoryId: '22', // People & Blogs
                 },
-                status: {
-                    privacyStatus: privacyStatus || 'private', // private, public, unlisted
-                    selfDeclaredMadeForKids: false,
-                },
+                status: finalStatus,
             },
             media: {
                 body: videoStream,

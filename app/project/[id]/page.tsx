@@ -41,9 +41,25 @@ export default function ProjectPage() {
     const [isVerified, setIsVerified] = useState(false);
     const playerRef = useRef<any>(null);
 
+    // Local state for debounced title input
+    const [localTopTitle, setLocalTopTitle] = useState('');
+
+    useEffect(() => {
+        if (project?.settings?.topTitle?.text) {
+            setLocalTopTitle(project.settings.topTitle.text);
+        }
+    }, [project?.settings?.topTitle?.text]);
+
     // YouTube State
     const [showYoutubeModal, setShowYoutubeModal] = useState(false);
-    const [youtubeForm, setYoutubeForm] = useState({ channel: 'www', title: '', description: '', tags: '', privacyStatus: 'private' });
+    const [youtubeForm, setYoutubeForm] = useState({ 
+        channel: 'www', 
+        title: '', 
+        description: '', 
+        tags: '', 
+        privacyStatus: 'private',
+        publishAt: new Date(Date.now() + 86400000).toISOString().slice(0, 16) // Default to 24h from now
+    });
     const [youtubePublishing, setYoutubePublishing] = useState(false);
     const [youtubeResult, setYoutubeResult] = useState<{ url?: string; error?: string } | null>(null);
 
@@ -176,68 +192,66 @@ export default function ProjectPage() {
             .subscribe();
 
         // POLL FOR RENDER PROGRESS
-        let progressInterval: NodeJS.Timeout;
+        let isPolling = true;
+        let timeoutId: NodeJS.Timeout;
+
+        const pollStatus = async () => {
+            if (!isPolling) return;
+            try {
+                const res = await fetch(`/api/render/${projectId}/status`, { cache: 'no-store' });
+                const data = await res.json();
+
+                if (!isPolling) return;
+
+                if (data.progress !== undefined) {
+                    setRenderProgress(data);
+                }
+
+                if (data.parts) {
+                    setProject((prev: any) => ({
+                        ...prev,
+                        settings: {
+                            ...(prev.settings || {}),
+                            renderParts: data.parts
+                        }
+                    }));
+                }
+
+                if (data.status !== 'rendering') {
+                    isPolling = false;
+                    setProject((prev: any) => ({
+                        ...prev,
+                        status: data.status,
+                        video_url: data.videoUrl || prev?.video_url,
+                    }));
+                    setRendering(false);
+                    if (data.status !== 'error') {
+                        setShowRenderModal(false);
+                    }
+                    return; // Stop polling
+                }
+            } catch (e) {
+                console.error("Polling error", e);
+            }
+
+            if (isPolling) {
+                timeoutId = setTimeout(pollStatus, 1000);
+            }
+        };
+
         if (project?.status === 'rendering' || rendering) {
             setRendering(true);
-            // Only show modal for single renders, not split ones (where we have inline UI)
             if (scenes.length <= 200) {
                 setShowRenderModal(true);
             }
-            progressInterval = setInterval(async () => {
-                try {
-                    const res = await fetch(`/api/render/${projectId}/status`, { cache: 'no-store' });
-                    const data = await res.json();
-
-                    if (data.progress !== undefined) {
-                        setRenderProgress(data);
-                    }
-
-                    // Update project parts status live
-                    if (data.parts) {
-                        setProject((prev: any) => ({
-                            ...prev,
-                            settings: {
-                                ...(prev.settings || {}),
-                                renderParts: data.parts
-                            }
-                        }));
-                    }
-
-                    // Check for status change (done/error/ready/draft)
-                    // We stop polling if the status is anything other than 'rendering'
-                    if (data.status !== 'rendering') {
-                        clearInterval(progressInterval);
-
-                        // Update local project state immediately
-                        setProject((prev: any) => ({
-                            ...prev,
-                            status: data.status,
-                            video_url: data.videoUrl || prev?.video_url,
-                            // If we stopped rendering but it's not done, we should probably ensure renderParts are updated too? 
-                            // The API returns 'status' and 'progress'. It doesn't allow full project payload in this endpoint usually.
-                            // But usually fetching project again is safer? 
-                            // For now, updating status is enough to stop the spinner.
-                        }));
-                        setRendering(false);
-                        // Also hide modal if it's not error
-                        if (data.status === 'done') {
-                            // keep modal? or close? existing logic kept it open or relied on user.
-                            // Actually existing logic didn't explicitly close modal, just setRendering(false).
-                        } else if (data.status !== 'error') {
-                            // If it became ready/draft (reset), close modal
-                            setShowRenderModal(false);
-                        }
-                    }
-                } catch (e) {
-                    console.error("Polling error", e);
-                }
-            }, 1000);
+            pollStatus();
         }
 
         return () => {
             supabase.removeChannel(channel);
             supabase.removeChannel(projectChannel);
-            if (progressInterval) clearInterval(progressInterval);
+            isPolling = false;
+            if (timeoutId) clearTimeout(timeoutId);
         };
     }, [projectId, router, project?.status, rendering]); // Added rendering dependency
 
@@ -1222,26 +1236,33 @@ export default function ProjectPage() {
                                 
                                 <input
                                     type="text"
-                                    value={project.settings.topTitle.text}
-                                    onChange={(e) => handleUpdateSettings({
-                                        topTitle: { ...project.settings.topTitle!, text: e.target.value }
-                                    })}
+                                    value={localTopTitle}
+                                    onChange={(e) => setLocalTopTitle(e.target.value)}
+                                    onBlur={(e) => {
+                                        if (e.target.value !== project.settings.topTitle?.text) {
+                                            handleUpdateSettings({
+                                                topTitle: { ...project.settings.topTitle!, text: e.target.value }
+                                            });
+                                        }
+                                    }}
                                     className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1 w-32"
                                     placeholder="Enter title..."
                                 />
 
-                                <select
-                                    value={project.settings.topTitle.font}
-                                    onChange={(e) => handleUpdateSettings({
-                                        topTitle: { ...project.settings.topTitle!, font: e.target.value as any }
-                                    })}
-                                    className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
-                                >
-                                    <option value="sans">Sans</option>
-                                    <option value="serif">Serif</option>
-                                    <option value="brush">Brush</option>
-                                    <option value="helvetica">Helvetica</option>
-                                </select>
+                                {project.settings.templateMode !== 'graphic_split' && (
+                                    <select
+                                        value={project.settings.topTitle.font}
+                                        onChange={(e) => handleUpdateSettings({
+                                            topTitle: { ...project.settings.topTitle!, font: e.target.value as any }
+                                        })}
+                                        className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                                    >
+                                        <option value="sans">Sans</option>
+                                        <option value="serif">Serif</option>
+                                        <option value="brush">Brush</option>
+                                        <option value="helvetica">Helvetica</option>
+                                    </select>
+                                )}
 
                                 <select
                                     value={project.settings.topTitle.fontSize}
@@ -1250,10 +1271,20 @@ export default function ProjectPage() {
                                     })}
                                     className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
                                 >
-                                    <option value="small">S</option>
-                                    <option value="medium">M</option>
-                                    <option value="large">L</option>
-                                    <option value="xlarge">XL</option>
+                                    {project.settings.templateMode === 'graphic_split' ? (
+                                        <>
+                                            <option value="xlarge">XL</option>
+                                            <option value="2xl">2XL</option>
+                                            <option value="3xl">3XL</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="small">S</option>
+                                            <option value="medium">M</option>
+                                            <option value="large">L</option>
+                                            <option value="xlarge">XL</option>
+                                        </>
+                                    )}
                                 </select>
 
                                 <label className="flex items-center gap-1 cursor-pointer">
@@ -1296,115 +1327,119 @@ export default function ProjectPage() {
 
                         <div className="h-6 w-px bg-white/10"></div>
 
-                        <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Caption Settings:</span>
-
-                        {/* Caption Toggle - Improved Styling */}
-                        <label className="relative inline-flex items-center gap-2 cursor-pointer group whitespace-nowrap">
-                            <input
-                                type="checkbox"
-                                checked={project.settings.captions.enabled}
-                                onChange={(e) => handleUpdateSettings({
-                                    captions: { ...project.settings.captions, enabled: e.target.checked }
-                                })}
-                                className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-stone-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-500/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
-                            <span className="text-xs text-stone-300">Show</span>
-                        </label>
-
-                        {/* Caption Style - moved to first position */}
-                        <select
-                            value={project.settings.captions.style || 'classic'}
-                            onChange={(e) => handleUpdateSettings({
-                                captions: { ...project.settings.captions, style: e.target.value as any }
-                            })}
-                            className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
-                            disabled={!project.settings.captions.enabled}
-                        >
-                            <option value="classic">Classic</option>
-                            <option value="word_pop">Word Pop</option>
-                            <option value="karaoke">Karaoke</option>
-                            <option value="mrbeast">Mr Beast</option>
-                            <option value="dark_psychology">Dark Psychology</option>
-                        </select>
-
-                        {/* Classic-only settings - only show when classic style is selected */}
-                        {(project.settings.captions.style === 'classic' || !project.settings.captions.style) && (
+                        {project.settings.templateMode !== 'graphic_split' && (
                             <>
-                                {/* Font */}
+                                <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Caption Settings:</span>
+
+                                {/* Caption Toggle - Improved Styling */}
+                                <label className="relative inline-flex items-center gap-2 cursor-pointer group whitespace-nowrap">
+                                    <input
+                                        type="checkbox"
+                                        checked={project.settings.captions.enabled}
+                                        onChange={(e) => handleUpdateSettings({
+                                            captions: { ...project.settings.captions, enabled: e.target.checked }
+                                        })}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-9 h-5 bg-stone-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-500/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+                                    <span className="text-xs text-stone-300">Show</span>
+                                </label>
+
+                                {/* Caption Style - moved to first position */}
                                 <select
-                                    value={project.settings.captions.font}
+                                    value={project.settings.captions.style || 'classic'}
                                     onChange={(e) => handleUpdateSettings({
-                                        captions: { ...project.settings.captions, font: e.target.value as any }
+                                        captions: { ...project.settings.captions, style: e.target.value as any }
                                     })}
                                     className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
                                     disabled={!project.settings.captions.enabled}
                                 >
-                                    <option value="sans">Sans</option>
-                                    <option value="serif">Serif</option>
-                                    <option value="brush">Brush</option>
+                                    <option value="classic">Classic</option>
+                                    <option value="word_pop">Word Pop</option>
+                                    <option value="karaoke">Karaoke</option>
+                                    <option value="mrbeast">Mr Beast</option>
+                                    <option value="dark_psychology">Dark Psychology</option>
                                 </select>
 
-                                {/* Size */}
-                                <select
-                                    value={project.settings.captions.fontSize || 'medium'}
-                                    onChange={(e) => handleUpdateSettings({
-                                        captions: { ...project.settings.captions, fontSize: e.target.value as any }
-                                    })}
-                                    className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
-                                    disabled={!project.settings.captions.enabled}
-                                >
-                                    <option value="small">S</option>
-                                    <option value="medium">M</option>
-                                    <option value="large">L</option>
-                                    <option value="xlarge">XL</option>
-                                </select>
+                                {/* Classic-only settings - only show when classic style is selected */}
+                                {(project.settings.captions.style === 'classic' || !project.settings.captions.style) && (
+                                    <>
+                                        {/* Font */}
+                                        <select
+                                            value={project.settings.captions.font}
+                                            onChange={(e) => handleUpdateSettings({
+                                                captions: { ...project.settings.captions, font: e.target.value as any }
+                                            })}
+                                            className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                                            disabled={!project.settings.captions.enabled}
+                                        >
+                                            <option value="sans">Sans</option>
+                                            <option value="serif">Serif</option>
+                                            <option value="brush">Brush</option>
+                                        </select>
 
-                                {/* Position */}
-                                <select
-                                    value={project.settings.captions.position}
-                                    onChange={(e) => handleUpdateSettings({
-                                        captions: { ...project.settings.captions, position: e.target.value as any }
-                                    })}
-                                    className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
-                                    disabled={!project.settings.captions.enabled}
-                                >
-                                    <option value="top">Top</option>
-                                    <option value="center">Center</option>
-                                    <option value="mid-bottom">Mid-Bottom</option>
-                                    <option value="bottom">Bottom</option>
-                                </select>
+                                        {/* Size */}
+                                        <select
+                                            value={project.settings.captions.fontSize || 'medium'}
+                                            onChange={(e) => handleUpdateSettings({
+                                                captions: { ...project.settings.captions, fontSize: e.target.value as any }
+                                            })}
+                                            className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                                            disabled={!project.settings.captions.enabled}
+                                        >
+                                            <option value="small">S</option>
+                                            <option value="medium">M</option>
+                                            <option value="large">L</option>
+                                            <option value="xlarge">XL</option>
+                                        </select>
 
-                                {/* Animation */}
-                                <select
-                                    value={project.settings.captions.animation || 'typewriter'}
-                                    onChange={(e) => handleUpdateSettings({
-                                        captions: { ...project.settings.captions, animation: e.target.value as any }
-                                    })}
-                                    className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
-                                    disabled={!project.settings.captions.enabled}
-                                >
-                                    <option value="none">None</option>
-                                    <option value="typewriter">Typewriter</option>
-                                    <option value="fade-in">Fade In</option>
-                                    <option value="slide-up">Slide Up</option>
-                                    <option value="bounce">Bounce</option>
-                                </select>
+                                        {/* Position */}
+                                        <select
+                                            value={project.settings.captions.position}
+                                            onChange={(e) => handleUpdateSettings({
+                                                captions: { ...project.settings.captions, position: e.target.value as any }
+                                            })}
+                                            className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                                            disabled={!project.settings.captions.enabled}
+                                        >
+                                            <option value="top">Top</option>
+                                            <option value="center">Center</option>
+                                            <option value="mid-bottom">Mid-Bottom</option>
+                                            <option value="bottom">Bottom</option>
+                                        </select>
 
-                                {/* Stroke/Weight */}
-                                <select
-                                    value={project.settings.captions.strokeWidth || 'medium'}
-                                    onChange={(e) => handleUpdateSettings({
-                                        captions: { ...project.settings.captions, strokeWidth: e.target.value as any }
-                                    })}
-                                    className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
-                                    disabled={!project.settings.captions.enabled}
-                                >
-                                    <option value="thin">Thin</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="thick">Thick</option>
-                                    <option value="bold">Bold</option>
-                                </select>
+                                        {/* Animation */}
+                                        <select
+                                            value={project.settings.captions.animation || 'typewriter'}
+                                            onChange={(e) => handleUpdateSettings({
+                                                captions: { ...project.settings.captions, animation: e.target.value as any }
+                                            })}
+                                            className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                                            disabled={!project.settings.captions.enabled}
+                                        >
+                                            <option value="none">None</option>
+                                            <option value="typewriter">Typewriter</option>
+                                            <option value="fade-in">Fade In</option>
+                                            <option value="slide-up">Slide Up</option>
+                                            <option value="bounce">Bounce</option>
+                                        </select>
+
+                                        {/* Stroke/Weight */}
+                                        <select
+                                            value={project.settings.captions.strokeWidth || 'medium'}
+                                            onChange={(e) => handleUpdateSettings({
+                                                captions: { ...project.settings.captions, strokeWidth: e.target.value as any }
+                                            })}
+                                            className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1"
+                                            disabled={!project.settings.captions.enabled}
+                                        >
+                                            <option value="thin">Thin</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="thick">Thick</option>
+                                            <option value="bold">Bold</option>
+                                        </select>
+                                    </>
+                                )}
                             </>
                         )}
 
@@ -1735,9 +1770,26 @@ export default function ProjectPage() {
                                             <option value="private">Private</option>
                                             <option value="unlisted">Unlisted</option>
                                             <option value="public">Public</option>
+                                            <option value="schedule">Schedule</option>
                                         </select>
                                     </div>
                                 </div>
+
+                                {youtubeForm.privacyStatus === 'schedule' && (
+                                    <div className="space-y-1.5 border-t border-white/5 pt-4">
+                                        <label className="text-xs text-stone-400 uppercase tracking-wider font-semibold flex items-center gap-2">
+                                            Scheduled Publish Time
+                                            <span className="text-[10px] text-stone-500 font-normal normal-case">(Your local time)</span>
+                                        </label>
+                                        <input 
+                                            type="datetime-local"
+                                            value={youtubeForm.publishAt} 
+                                            onChange={e => setYoutubeForm({...youtubeForm, publishAt: e.target.value})}
+                                            min={new Date().toISOString().slice(0, 16)}
+                                            className="w-full bg-stone-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-stone-200 focus:outline-none focus:border-red-500/50 [color-scheme:dark]"
+                                        />
+                                    </div>
+                                )}
 
                                 {youtubeResult?.error && (
                                     <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-xs rounded-lg break-words">

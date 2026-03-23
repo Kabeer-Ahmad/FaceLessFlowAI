@@ -1,9 +1,11 @@
 import { Composition } from 'remotion';
 import { MainComposition, MainCompositionSchema } from './MainComposition';
 import { loadFont } from '@remotion/google-fonts/PermanentMarker';
+import { loadFont as loadAnton } from '@remotion/google-fonts/Anton';
 import './style.css';
 
 loadFont();
+loadAnton();
 
 export const RemotionRoot: React.FC = () => {
     return (

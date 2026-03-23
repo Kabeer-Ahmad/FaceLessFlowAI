@@ -14,7 +14,7 @@ export type ProjectSettings = {
     topTitle?: {
         text: string;
         color: string;
-        fontSize: 'small' | 'medium' | 'large' | 'xlarge';
+        fontSize: 'small' | 'medium' | 'large' | 'xlarge' | '2xl' | '3xl';
         font: 'helvetica' | 'serif' | 'brush';
         isBold: boolean;
     };

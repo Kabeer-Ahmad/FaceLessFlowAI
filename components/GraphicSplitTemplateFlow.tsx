@@ -25,7 +25,7 @@ export default function GraphicSplitTemplateFlow({ onBack }: { onBack: () => voi
         topTitle: {
             text: 'MY AWESOME VIDEO',
             color: '#ffffff',
-            fontSize: 'large',
+            fontSize: '3xl',
             font: 'helvetica',
             isBold: true
         },
@@ -108,17 +108,33 @@ export default function GraphicSplitTemplateFlow({ onBack }: { onBack: () => voi
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Voice Persona</label>
-                        <select
-                            value={settings.audioVoice}
-                            onChange={(e) => setSettings({ ...settings, audioVoice: e.target.value })}
-                            className="w-full bg-stone-950 border border-white/10 rounded-lg p-4 text-sm focus:outline-none focus:border-green-500/50 transition-colors"
-                        >
-                            {VOICE_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                        </select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Visual Engine</label>
+                            <select
+                                value={settings.imageModel}
+                                onChange={(e) => setSettings({ ...settings, imageModel: e.target.value as any })}
+                                className="w-full bg-stone-950 border border-white/10 rounded-lg p-4 text-sm focus:outline-none focus:border-green-500/50 transition-colors"
+                            >
+                                <option value="fal">Fal.ai (Flux Pro)</option>
+                                <option value="runware">Runware (Fast)</option>
+                                <option value="gemini">Google Gemini 2.5</option>
+                                <option value="imagen">Google Imagen 4.0 Fast</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Voice Persona</label>
+                            <select
+                                value={settings.audioVoice}
+                                onChange={(e) => setSettings({ ...settings, audioVoice: e.target.value })}
+                                className="w-full bg-stone-950 border border-white/10 rounded-lg p-4 text-sm focus:outline-none focus:border-green-500/50 transition-colors"
+                            >
+                                {VOICE_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="pt-6 border-t border-white/5">

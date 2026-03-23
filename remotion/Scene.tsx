@@ -131,17 +131,20 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
 
     if (isGraphicSplit) {
         const titleStyle = {
-            fontFamily: settings.topTitle?.font === 'brush' ? 'Brush Script MT, cursive' : settings.topTitle?.font === 'serif' ? 'Georgia, serif' : 'Helvetica, sans-serif',
-            fontSize: settings.topTitle?.fontSize === 'xlarge' ? '5rem' :
+            fontFamily: '"Anton", sans-serif',
+            fontSize: settings.topTitle?.fontSize === '3xl' ? '7rem' :
+                      settings.topTitle?.fontSize === '2xl' ? '6rem' :
+                      settings.topTitle?.fontSize === 'xlarge' ? '5rem' :
                       settings.topTitle?.fontSize === 'large' ? '4rem' :
                       settings.topTitle?.fontSize === 'medium' ? '3rem' : '2rem',
             color: settings.topTitle?.color || '#ffffff',
             fontWeight: settings.topTitle?.isBold ? 'bold' : 'normal',
             textAlign: 'center' as const,
-            marginTop: '8%',
+            marginTop: '1%', // Minimal space from top
             textTransform: 'uppercase' as const,
             width: '100%',
             position: 'absolute' as const,
+            WebkitTextStroke: '3px black', // Force stroke permanently for graphic split
             top: 0,
             zIndex: 10
         };
@@ -168,34 +171,31 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
                     )}
                 </AbsoluteFill>
 
-                {/* Right Captions Container */}
-                <AbsoluteFill style={{ left: '50%', width: '50%' }}>
+                {/* Right Captions Container - centered in the remaining space below heading */}
+                <AbsoluteFill style={{ left: '50%', width: '50%', top: '15%', height: '85%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {/* Audio */}
                     {scene.audio_url && (
                         <Audio src={scene.audio_url} volume={1} startFrom={0} />
                     )}
 
                     {/* Captions */}
-                    {settings.captions.enabled && (() => {
-                        const captionStyle = settings.captions.style || 'classic';
-                        // Reusing caption components which typically use AbsoluteFill internally.
-                        // Since this container is AbsoluteFill, it creates a positioning context correctly!
-                        if (captionStyle === 'word_pop') {
-                            const { WordByWordPop } = require('./captions/WordByWordPop');
-                            return <WordByWordPop text={scene.text} durationInSeconds={d} />;
-                        } else if (captionStyle === 'karaoke') {
-                            const { KaraokeHighlight } = require('./captions/KaraokeHighlight');
-                            return <KaraokeHighlight text={scene.text} durationInSeconds={d} color={settings.captions.color} />;
-                        } else if (captionStyle === 'mrbeast') {
-                            const { MrBeastStyle } = require('./captions/MrBeastStyle');
-                            return <MrBeastStyle text={scene.text} durationInSeconds={d} />;
-                        } else if (captionStyle === 'dark_psychology') {
-                            const { DarkPsyStyle } = require('./captions/DarkPsyStyle');
-                            return <DarkPsyStyle text={scene.text} durationInSeconds={d} />;
-                        } else {
-                            const { ClassicCaptions } = require('./captions/ClassicCaptions');
-                            return <ClassicCaptions text={scene.text} durationInSeconds={d} settings={settings} />;
-                        }
+                    {(() => {
+                        // For Graphic Split, force classic normal captions with slide_up animation, centered, bold, medium
+                        const finalSettings = {
+                            ...settings,
+                            captions: {
+                                ...settings.captions,
+                                enabled: true,
+                                style: 'classic' as any,
+                                animation: 'slide-up' as any,
+                                position: 'center' as any,
+                                strokeWidth: 'bold' as any, // Bold font weight via strokeWidth hack
+                                fontSize: 'medium' as any,
+                            }
+                        };
+                        
+                        const { ClassicCaptions } = require('./captions/ClassicCaptions');
+                        return <ClassicCaptions text={scene.text} durationInSeconds={d} settings={finalSettings} />;
                     })()}
                 </AbsoluteFill>
             </AbsoluteFill>

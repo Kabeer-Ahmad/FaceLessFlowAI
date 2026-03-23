@@ -83,12 +83,17 @@ export async function GET(
                         hasUpdates = true;
                     }
 
-                } catch (e) {
+                } catch (e: any) {
                     console.error(`Error fetching progress for part ${part.part}:`, e);
-                    // If we can't fetch progress (e.g. job expired/invalid), we must mark it as error
-                    part.status = 'error';
-                    partStatus = 'error';
-                    hasUpdates = true;
+                    
+                    const isTransient = e.code === 'ENOTFOUND' || e.code === 'ECONNRESET' || e.code === 'ETIMEDOUT' || e.message?.includes('socket hang up') || e.message?.includes('fetch failed');
+
+                    if (!isTransient) {
+                        // If we can't fetch progress and it's not a transient network issue, mark it as error
+                        part.status = 'error';
+                        partStatus = 'error';
+                        hasUpdates = true;
+                    }
                 }
             }
 
@@ -229,8 +234,18 @@ export async function GET(
     } catch (e: any) {
         console.error("Error fetching progress:", e);
 
-        // If the job is lost/failed, we should stop the polling loop
-        // We update the project status to error
+        const isTransient = e.code === 'ENOTFOUND' || e.code === 'ECONNRESET' || e.code === 'ETIMEDOUT' || e.message?.includes('socket hang up') || e.message?.includes('fetch failed');
+
+        if (isTransient) {
+            console.log("Transient network error detected, preserving 'rendering' status...");
+            // Return 'rendering' without a progress field so the frontend keeps its last known progress.
+            return NextResponse.json({ 
+                status: 'rendering', 
+                error: 'Network timeout, retrying...' 
+            });
+        }
+
+        // If the job is lost/failed due to a hard AWS error, stop the polling loop and update project status
         await supabase.from('projects').update({ status: 'error' }).eq('id', projectId);
 
         return NextResponse.json({ progress: 0, status: 'error', error: e.message });
