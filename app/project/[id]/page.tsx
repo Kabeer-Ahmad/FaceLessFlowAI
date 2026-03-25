@@ -1246,6 +1246,11 @@ export default function ProjectPage() {
                                         }
                                     }}
                                     className="bg-stone-800 border border-stone-700 text-stone-200 text-xs rounded px-2 py-1 w-32"
+                                    style={project.settings.templateMode === 'graphic_split' ? {
+                                        fontFamily: 'var(--font-anton), sans-serif',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.02em',
+                                    } : undefined}
                                     placeholder="Enter title..."
                                 />
 

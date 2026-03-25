@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, OffthreadVideo, useCurrentFrame, useVideoConfig, interpolate, Easing, Audio } from 'remotion';
+import { AbsoluteFill, Img, OffthreadVideo, useCurrentFrame, useVideoConfig, interpolate, Easing, Audio, staticFile } from 'remotion';
 import { SceneApi, ProjectSettings } from '../types';
 import { AudioWave } from './AudioWave';
 import { Heading } from './Heading';
@@ -152,7 +152,7 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
         return (
             <AbsoluteFill style={{ overflow: 'hidden', ...getTransitionStyle() }}>
                 {/* Background */}
-                <Img src="/tmp2_back.png" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} />
+                <Img src={staticFile('tmp2_back.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} />
                 
                 {/* Top Title */}
                 {settings.topTitle && (
