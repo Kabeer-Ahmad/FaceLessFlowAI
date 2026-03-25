@@ -120,6 +120,7 @@ export default function GraphicSplitTemplateFlow({ onBack }: { onBack: () => voi
                                 <option value="runware">Runware (Fast)</option>
                                 <option value="gemini">Google Gemini 2.5</option>
                                 <option value="imagen">Google Imagen 4.0 Fast</option>
+                                <option value="flux_dev">Replicate (FLUX Dev)</option>
                             </select>
                         </div>
 

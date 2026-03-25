@@ -162,12 +162,21 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
                 {/* Left Graphics */}
                 <AbsoluteFill style={{ width: '50%', right: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '10%' }}>
                     {scene.image_url && (
-                        <Img
-                            src={scene.image_url}
-                            style={{ width: '80%', height: '80%', objectFit: 'contain', 
-                                transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`
-                            }}
-                        />
+                        <div style={{
+                            width: '85%',
+                            aspectRatio: '16/9',
+                            border: '8px solid black',
+                            borderRadius: '32px',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                        }}>
+                            <Img
+                                src={scene.image_url}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover',
+                                    transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`
+                                }}
+                            />
+                        </div>
                     )}
                 </AbsoluteFill>
 

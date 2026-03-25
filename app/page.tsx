@@ -269,7 +269,7 @@ export default function Home() {
                                                 } else if (newStyle === 'james_finetuned') {
                                                     updates.imageModel = 'replicate';
                                                 } else if (newStyle === 'grandma_finetuned') {
-                                                    updates.imageModel = 'jamestok:235@6656';
+                                                    updates.imageModel = 'grandma_replicate';
                                                 }
                                                 setSettings({ ...settings, ...updates });
                                             }}
@@ -339,8 +339,9 @@ export default function Home() {
                                                     </>
                                                 ) : settings.visualStyle === 'grandma_finetuned' ? (
                                                     <>
-                                                        <option value="jamestok:235@6656">Grandma Shnell</option>
-                                                        <option value="jamestok:235@6656#schnell">Grandma Dev</option>
+                                                        <option value="grandma_replicate">Grandma LoRA (Replicate)</option>
+                                                        <option value="jamestok:235@6656">Grandma Schnell (Runware)</option>
+                                                        <option value="jamestok:235@6656#schnell">Grandma Dev (Runware)</option>
                                                     </>
                                                 ) : (
                                                     <>
@@ -348,7 +349,7 @@ export default function Home() {
                                                         <option value="runware">Runware (Fast)</option>
                                                         <option value="gemini">Google Gemini 2.5</option>
                                                         <option value="imagen">Google Imagen 4.0 Fast</option>
-                                                        {/* <option value="replicate">Replicate (FLUX LoRA)</option> */}
+                                                        <option value="flux_dev">Replicate (FLUX Dev)</option>
                                                     </>
                                                 )}
                                             </select>

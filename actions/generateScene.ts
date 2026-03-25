@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import { SceneApi, ProjectSettings } from '@/types';
-import { generateMinimaxAudio, generateFalImage, generateRunwareImage, generateGeminiImage, generateReplicateImage, generateQwenAudio } from '@/lib/ai';
+import { generateMinimaxAudio, generateFalImage, generateRunwareImage, generateGeminiImage, generateReplicateImage, generateFluxDevImage, generateGrandmaImage, generateQwenAudio } from '@/lib/ai';
 import { generateGenAIProAudio } from '@/lib/genaipro';
 import { generateImagenImage } from '@/lib/imagen';
 import { VOICE_ID_MAP, CHARACTER_REFERENCE_MAP } from '@/lib/constants';
@@ -262,8 +262,8 @@ No text in image.`;
                 subjectDesc = "";
                 negativePrompt = "";
             } else if (styleMode === "grandma_finetuned") {
-                // Grandma Finetuned uses Runware with GRANDMATOK trigger
-                styleDesc = "A clean flat cartoon character of GRANDMATOK, adult , she is 30 years old: ";
+                // Grandma Finetuned uses Replicate with GRANDMATOK trigger
+                styleDesc = "A clean flat cartoon character of GRANDMATOK, adult, she is 30 years old: ";
                 subjectDesc = "";
                 negativePrompt = "";
             } else if (styleMode === "dark_animated") {
@@ -271,7 +271,7 @@ No text in image.`;
                 subjectDesc = "Subject: Shadowy figures, psychological concepts, abstract representations of the mind, vintage manipulation themes.";
                 negativePrompt = "bright, colorful, happy, cartoon, anime, 3d render, modern, glossy, cute, flat, vector, daylight";
             } else if (styleMode === "graphic_split_style") {
-                styleDesc = "Style: Clean vibrant high-quality 3d vector graphic illustration, isolated subject, clear lighting. The background MUST be a single flat solid hex #00FF00 pure chroma key green screen color.";
+                styleDesc = "Style: Clean vibrant high-quality 3d vector graphic illustration, isolated subject, clear lighting. The background MUST be a single flat solid color.";
                 subjectDesc = "Subject: highly stylized graphic representation of the concept, centered.";
                 negativePrompt = "text, background elements, scenery, patterns, shadow on background";
             } else { // zen
@@ -384,8 +384,14 @@ No text in image.`;
                         console.log(`Using custom James model: ${settings.imageModel}`);
                         imageUrl = await generateRunwareImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio, settings.imageModel);
                     } else if (settings.imageModel === 'replicate') {
-                        // James Finetuned model via Replicate (Legacy/Default option)
+                        // James Finetuned model via Replicate
                         imageUrl = await generateReplicateImage(fullPrompt, settings.aspectRatio, projectId, sceneIndex);
+                    } else if (settings.imageModel === 'flux_dev') {
+                        // Normal FLUX Dev via Replicate
+                        imageUrl = await generateFluxDevImage(fullPrompt, settings.aspectRatio, projectId, sceneIndex);
+                    } else if (settings.imageModel === 'grandma_replicate') {
+                        // Grandma Finetuned LoRA via Replicate
+                        imageUrl = await generateGrandmaImage(fullPrompt, settings.aspectRatio, projectId, sceneIndex);
                     } else {
                         // Default to Fal
                         imageUrl = await generateFalImage(fullPrompt, projectId, sceneIndex, settings.aspectRatio);
@@ -447,7 +453,7 @@ No text in image.`;
                         const refImageId = (settings.visualStyle === 'reference_image' && settings.referenceCharacter)
                             ? CHARACTER_REFERENCE_MAP[settings.referenceCharacter]
                             : undefined;
-                            
+
                         const removeBg = settings.templateMode === 'graphic_split';
                         imageUrl2 = await generateRunwareImage(fullPrompt2, projectId, sceneIndex + 0.5, settings.aspectRatio, modelId, refImageId, removeBg);
                     } else {

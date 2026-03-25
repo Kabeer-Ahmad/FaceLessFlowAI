@@ -2,7 +2,7 @@
 
 import { SceneApi, ProjectSettings } from '@/types';
 import { createClient } from '@/utils/supabase/server';
-import { generateFalImage, generateRunwareImage, generateGeminiImage, generateReplicateImage } from '@/lib/ai';
+import { generateFalImage, generateRunwareImage, generateGeminiImage, generateReplicateImage, generateFluxDevImage, generateGrandmaImage } from '@/lib/ai';
 import { generateImagenImage } from '@/lib/imagen';
 import OpenAI from 'openai';
 
@@ -157,6 +157,10 @@ Output Quality: High-contrast, sharp lines, suitable for 4K video playback.`;
             styleDesc = "Style: Dark vintage animated background aesthetic, psychological thriller atmosphere, film noir lighting, grainy texture, muted dark colors (deep blacks, grays, dark reds), mysterious shadows, surreal and psychological symbolism, 1950s detective movie feel, high contrast, dramatic lighting.";
             subjectDesc = "Subject: Shadowy figures, psychological concepts, abstract representations of the mind, vintage manipulation themes.";
             negativePrompt = "bright, colorful, happy, cartoon, anime, 3d render, modern, glossy, cute, flat, vector, daylight";
+        } else if (styleMode === "graphic_split_style") {
+            styleDesc = "Style: Clean vibrant high-quality 3d vector graphic illustration, isolated subject, clear lighting. The background MUST be a single flat solid color.";
+            subjectDesc = "Subject: highly stylized graphic representation of the concept, centered.";
+            negativePrompt = "text, background elements, scenery, patterns, shadow on background";
         } else { // zen
             styleDesc = "Style: Cinematic, photorealistic, 8k, serene lighting.";
             subjectDesc = "Subject: Zen Buddhist monk in orange robes/clothes and in meditative or teaching poses, minimalist Asian temple backgrounds.";
@@ -195,6 +199,12 @@ Output Quality: High-contrast, sharp lines, suitable for 4K video playback.`;
         } else if (activeModel === 'replicate') {
             // James Finetuned model via Replicate
             imageUrl = await generateReplicateImage(fullPrompt, aspectRatio, projectId, sceneIndex);
+        } else if (activeModel === 'flux_dev') {
+            // Normal FLUX Dev via Replicate
+            imageUrl = await generateFluxDevImage(fullPrompt, aspectRatio, projectId, sceneIndex);
+        } else if (activeModel === 'grandma_replicate') {
+            // Grandma LoRA via Replicate
+            imageUrl = await generateGrandmaImage(fullPrompt, aspectRatio, projectId, sceneIndex);
         } else {
             imageUrl = await generateFalImage(fullPrompt, projectId, sceneIndex, aspectRatio);
         }

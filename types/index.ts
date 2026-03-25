@@ -20,7 +20,7 @@ export type ProjectSettings = {
     };
     visualStyle: 'zen' | 'normal' | 'stick' | 'health' | 'cartoon' | 'art' | 'stock_natural' | 'clean_illustration' | 'stock_vector' | 'stock_art' | 'reference_image' | 'thick_stick_color' | 'thick_stick_bw' | 'james_finetuned' | 'grandma_finetuned' | 'dark_animated' | 'graphic_split_style';
     referenceCharacter?: 'grandpa' | 'grandma' | 'james' | 'dr_sticky';
-    imageModel: 'fal' | 'gemini' | 'runware' | 'imagen' | 'replicate';  // Renamed from imageProvider for clarity or alias? user said "image generator". Let's stick to imageProvider to match Python script logic if possible, but valid types are key.
+    imageModel: 'fal' | 'gemini' | 'runware' | 'imagen' | 'replicate' | 'flux_dev' | 'grandma_replicate';  // Renamed from imageProvider for clarity or alias? user said "image generator". Let's stick to imageProvider to match Python script logic if possible, but valid types are key.
     audioVoice: string;
     disclaimerEnabled: boolean;
     longSentenceBreak: boolean; // Generate 2 images for scenes with 20+ words

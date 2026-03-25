@@ -570,3 +570,100 @@ export async function generateReplicateImage(
 
     throw new Error("No image returned from Replicate");
 }
+
+// ---------- FLUX Dev (Normal - black-forest-labs/flux-dev) ----------
+export async function generateFluxDevImage(
+    prompt: string,
+    aspectRatio: string = '16:9',
+    projectId: string,
+    sceneIndex: number
+): Promise<string> {
+    console.log(`[Replicate/FluxDev] Generating image with flux-dev...`);
+
+    const output = await keyRotation.withRetry(
+        async (apiToken) => {
+            const replicate = new Replicate({ auth: apiToken });
+            return await replicate.run(
+                "black-forest-labs/flux-dev",
+                {
+                    input: {
+                        prompt,
+                        aspect_ratio: aspectRatio === '9:16' ? '9:16' : aspectRatio === '1:1' ? '1:1' : '16:9',
+                        output_format: "webp",
+                        output_quality: 80,
+                        num_outputs: 1,
+                        guidance: 3.5,
+                        num_inference_steps: 28,
+                        go_fast: true,
+                    }
+                }
+            ) as any;
+        },
+        () => keyRotation.getNextReplicateKey(),
+        1
+    );
+
+    console.log(`[Replicate/FluxDev] Image generated successfully`);
+
+    if (output && output.length > 0) {
+        const imageUrl = typeof output[0] === 'string' ? output[0] : output[0].url?.() ?? output[0].toString();
+        const response = await fetch(imageUrl);
+        const buffer = await response.arrayBuffer();
+        return await uploadToStorage(buffer, projectId, `images/scene_${sceneIndex}_${Date.now()}.webp`, 'image/webp');
+    }
+
+    throw new Error("No image returned from Replicate FLUX Dev");
+}
+
+// ---------- Grandma Finetuned (vivian948/flux-dev-grandma) ----------
+export async function generateGrandmaImage(
+    prompt: string,
+    aspectRatio: string = '16:9',
+    projectId: string,
+    sceneIndex: number
+): Promise<string> {
+    console.log(`[Replicate/Grandma] Generating image with Grandma LoRA model...`);
+
+    let replicateAspectRatio = '16:9';
+    if (aspectRatio === '9:16') replicateAspectRatio = '9:16';
+    else if (aspectRatio === '1:1') replicateAspectRatio = '1:1';
+
+    const output = await keyRotation.withRetry(
+        async (apiToken) => {
+            const replicate = new Replicate({ auth: apiToken });
+            return await replicate.run(
+                "vivian948/flux-dev-grandma:b30c0cedf6f8abeec55eb5f5892c31d92d37ac59ef40d0d70b59785569543dc1",
+                {
+                    input: {
+                        prompt,
+                        model: "dev",
+                        go_fast: false,
+                        lora_scale: 1,
+                        megapixels: "1",
+                        num_outputs: 1,
+                        aspect_ratio: replicateAspectRatio,
+                        output_format: "webp",
+                        guidance_scale: 3,
+                        output_quality: 80,
+                        prompt_strength: 0.8,
+                        extra_lora_scale: 1,
+                        num_inference_steps: 28
+                    }
+                }
+            ) as any;
+        },
+        () => keyRotation.getNextReplicateKey(),
+        1
+    );
+
+    console.log(`[Replicate/Grandma] Image generated successfully`);
+
+    if (output && output.length > 0) {
+        const imageUrl = typeof output[0] === 'string' ? output[0] : output[0].url?.() ?? output[0].toString();
+        const response = await fetch(imageUrl);
+        const buffer = await response.arrayBuffer();
+        return await uploadToStorage(buffer, projectId, `images/scene_${sceneIndex}_${Date.now()}.webp`, 'image/webp');
+    }
+
+    throw new Error("No image returned from Replicate Grandma");
+}
