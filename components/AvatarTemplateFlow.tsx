@@ -235,6 +235,30 @@ export default function AvatarTemplateFlow({ onBack, templateType = 'avatar_inte
                                         </select>
                                     </div>
                                 )}
+
+                                {/* Aspect Ratio - full width row */}
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Video Format</label>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setSettings({ ...settings, aspectRatio: '16:9' })}
+                                            className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${settings.aspectRatio === '16:9' ? 'bg-orange-600/20 border-orange-500 text-orange-300' : 'bg-stone-950 border-stone-800 text-stone-400 hover:border-stone-600'}`}
+                                        >
+                                            📺 Landscape (16:9)
+                                        </button>
+                                        <button
+                                            onClick={() => setSettings({ ...settings, aspectRatio: '9:16' })}
+                                            className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${settings.aspectRatio === '9:16' ? 'bg-orange-600/20 border-orange-500 text-orange-300' : 'bg-stone-950 border-stone-800 text-stone-400 hover:border-stone-600'}`}
+                                        >
+                                            📱 Portrait (9:16)
+                                        </button>
+                                    </div>
+                                    {settings.aspectRatio === '9:16' && (
+                                        <p className="text-xs text-orange-400/80 mt-1">
+                                            ⚠️ Make sure your avatar video is also filmed in portrait (9:16) for best results.
+                                        </p>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Long Sentence Break Toggle */}
