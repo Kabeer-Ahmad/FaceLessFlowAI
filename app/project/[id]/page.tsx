@@ -1216,6 +1216,7 @@ export default function ProjectPage() {
                         <div className="h-6 w-px bg-white/10"></div>
 
                         {/* Disclaimer Toggle */}
+                        {project.settings.templateMode !== 'pastel_card' && (
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Disclaimer:</span>
                             <button
@@ -1225,6 +1226,7 @@ export default function ProjectPage() {
                                 <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${project.settings.disclaimerEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
                             </button>
                         </div>
+                        )}
 
                         <div className="h-6 w-px bg-white/10"></div>
 
@@ -1317,6 +1319,7 @@ export default function ProjectPage() {
                         )}
 
                         {/* Headings Toggle */}
+                        {project.settings.templateMode !== 'pastel_card' && (
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Headings:</span>
                             <button
@@ -1329,10 +1332,13 @@ export default function ProjectPage() {
                                 <span className="text-[10px] text-purple-400">({project.settings.headings.length})</span>
                             )}
                         </div>
+                        )}
 
+                        {project.settings.templateMode !== 'pastel_card' && (
                         <div className="h-6 w-px bg-white/10"></div>
+                        )}
 
-                        {project.settings.templateMode !== 'graphic_split' && (
+                        {project.settings.templateMode !== 'graphic_split' && project.settings.templateMode !== 'pastel_card' && (
                             <>
                                 <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Caption Settings:</span>
 

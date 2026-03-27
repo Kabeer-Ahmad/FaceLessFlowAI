@@ -161,6 +161,10 @@ Output Quality: High-contrast, sharp lines, suitable for 4K video playback.`;
             styleDesc = "Style: Clean vibrant high-quality 3d vector graphic illustration, isolated subject, clear lighting. The background MUST be a single flat solid color.";
             subjectDesc = "Subject: highly stylized graphic representation of the concept, centered.";
             negativePrompt = "text, background elements, scenery, patterns, shadow on background";
+        } else if (styleMode === "pastel_card_style") {
+            styleDesc = "Style: Clean vibrant high-quality 3d vector graphic illustration, isolated subject, soft natural lighting. The background MUST be a very soft pastel gradient blending ultra-light shades of pink (#fce4ec), lavender (#ede7f6), and powder blue (#e3f2fd) — extremely light, airy, and subtle. No solid colors. No dark colors.";
+            subjectDesc = "Subject: highly stylized 3D graphic representation of the concept, centered, slightly elevated, with a gentle drop shadow.";
+            negativePrompt = "dark background, solid background, chroma key green, dark colors, text, watermark, heavy shadows";
         } else { // zen
             styleDesc = "Style: Cinematic, photorealistic, 8k, serene lighting.";
             subjectDesc = "Subject: Zen Buddhist monk in orange robes/clothes and in meditative or teaching poses, minimalist Asian temple backgrounds.";

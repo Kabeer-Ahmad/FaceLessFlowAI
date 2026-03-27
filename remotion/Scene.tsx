@@ -211,6 +211,97 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
         );
     }
 
+    const isPastelCard = settings.templateMode === 'pastel_card';
+
+    if (isPastelCard) {
+        // Typewriter progress calculation
+        const totalChars = scene.text.length;
+        const durationFrames2 = Math.ceil(d * fps);
+        const typewriterDuration = durationFrames2 * 0.8;
+        const visibleChars = Math.floor(
+            interpolate(frame, [0, typewriterDuration], [0, totalChars], { extrapolateRight: 'clamp' })
+        );
+        const visibleText = scene.text.slice(0, visibleChars);
+
+        return (
+            <AbsoluteFill style={{ overflow: 'hidden', ...getTransitionStyle() }}>
+                {/* Background: template_3 pastel gradient */}
+                <Img
+                    src={staticFile('template_3.png')}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }}
+                />
+
+                {/* Audio */}
+                {scene.audio_url && (
+                    <Audio src={scene.audio_url} volume={1} startFrom={0} />
+                )}
+
+                {/* Image Card — top area, from ~3% to ~62% height */}
+                {scene.image_url && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '3%',
+                        left: '4%',
+                        right: '4%',
+                        height: '59%',
+                        border: '6px solid #1a1a1a',
+                        borderRadius: '40px',
+                        overflow: 'hidden',
+                        boxShadow: '0 16px 48px rgba(0,0,0,0.18)',
+                    }}>
+                        <Img
+                            src={scene.image_url}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+                            }}
+                        />
+                    </div>
+                )}
+
+                {/* Captions — bottom 35% area, typewriter, translucent white pill box, black text */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: '4%',
+                    left: '4%',
+                    right: '4%',
+                    top: '66%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 2%',
+                }}>
+                    <div style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.72)',
+                        backdropFilter: 'blur(12px)',
+                        borderRadius: '28px',
+                        padding: '3% 5%',
+                        width: '100%',
+                        maxHeight: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+                    }}>
+                        <span style={{
+                            fontFamily: '"Anton", sans-serif',
+                            fontSize: `${Math.round(height * 0.042)}px`,
+                            color: '#111111',
+                            textAlign: 'center',
+                            lineHeight: 1.35,
+                            display: 'block',
+                            letterSpacing: '0.02em',
+                        }}>
+                            {visibleText}
+                        </span>
+                    </div>
+                </div>
+            </AbsoluteFill>
+        );
+    }
+
     return (
         <AbsoluteFill style={{ overflow: 'hidden', ...getTransitionStyle() }}>
             {/* Background Image with Ken Burns */}

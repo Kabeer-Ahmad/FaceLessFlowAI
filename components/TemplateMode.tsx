@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Film, ArrowRight } from 'lucide-react';
 import AvatarTemplateFlow from './AvatarTemplateFlow';
 import GraphicSplitTemplateFlow from './GraphicSplitTemplateFlow';
+import PastelCardTemplateFlow from './PastelCardTemplateFlow';
 
 export default function TemplateMode() {
     const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
@@ -14,6 +15,10 @@ export default function TemplateMode() {
     
     if (selectedTemplate === 'graphic_split') {
         return <GraphicSplitTemplateFlow onBack={() => setSelectedTemplate(null)} />;
+    }
+
+    if (selectedTemplate === 'pastel_card') {
+        return <PastelCardTemplateFlow onBack={() => setSelectedTemplate(null)} />;
     }
 
     // Otherwise, show the Template Library grid
@@ -69,7 +74,29 @@ export default function TemplateMode() {
                     </div>
                 </div>
 
-                {/* Coming Soon Placeholders */}
+                {/* Pastel Card Template Card */}
+                <div
+                    onClick={() => setSelectedTemplate('pastel_card')}
+                    className="group flex flex-col justify-between bg-stone-900/40 border border-white/5 hover:border-purple-500/40 hover:bg-stone-900/80 rounded-2xl p-6 cursor-pointer transition-all duration-300 relative overflow-hidden"
+                >
+                    <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-all" style={{ background: 'radial-gradient(circle, rgba(192,132,252,0.15), transparent)' }} />
+
+                    <div>
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform" style={{ background: 'linear-gradient(135deg, rgba(248,200,216,0.3), rgba(212,184,232,0.3), rgba(184,212,240,0.3))', border: '1px solid rgba(192,132,252,0.25)' }}>
+                            <Film size={24} className="text-purple-300" />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">Pastel Card</h3>
+                        <p className="text-stone-400 text-sm leading-relaxed mb-6">
+                            A soft pastel gradient background with a full-width graphic card at the top (65% height) and elegant typewriter captions in a frosted white box below.
+                        </p>
+                    </div>
+
+                    <div className="flex items-center text-sm font-semibold opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all" style={{ color: '#c084fc' }}>
+                        Use Template <ArrowRight size={16} className="ml-1" />
+                    </div>
+                </div>
+
+                {/* Coming Soon Placeholder */}
                 <div className="flex flex-col justify-center items-center bg-stone-900/20 border border-white/5 border-dashed rounded-2xl p-6 h-full min-h-[250px] opacity-50">
                     <p className="text-stone-500 font-mono text-sm uppercase tracking-widest">More Templates Soon</p>
                 </div>
