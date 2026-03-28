@@ -150,7 +150,9 @@ export async function generateQwenAudio(text: string, voiceId: string, projectId
         'qwen_grandma': 'grandma_voice_clone_prompt_s68u9kzy.pt',
         'qwen_grandpa': 'grandpa_voice_clone_prompt_xqvbtw0n.pt',
         'qwen_barbara': 'barbara_voice_clone_prompt_poi3bk3z.pt',
-        'qwen_james': 'james_voice_clone_prompt_9us41qyq.pt'
+        'qwen_james': 'james_voice_clone_prompt_9us41qyq.pt',
+        'qwen_young_female': 'voice_clone_young_female.pt',
+        'qwen_young_male': 'voice_clone_young_male.pt'
     };
 
     const fileName = voiceFileMap[voiceId];
@@ -185,7 +187,8 @@ export async function generateQwenAudio(text: string, voiceId: string, projectId
     }
 
     try {
-        const client = await Client.connect("https://stylique-qwen-tts-docker.hf.space/");
+        const qwenUrl = process.env.QWEN_TTS_URL || "https://vivi404-qwen-tts-docker.hf.space/";
+        const client = await Client.connect(qwenUrl);
         const result = await client.predict("/load_prompt_and_gen", {
             file_obj: exampleFile,
             text: text,

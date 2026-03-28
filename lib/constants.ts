@@ -31,7 +31,9 @@ export const VOICE_OPTIONS = [
     { label: "Grandma (Qwen)", value: "qwen_grandma", id: "qwen_grandma" },
     { label: "Grandpa (Qwen)", value: "qwen_grandpa", id: "qwen_grandpa" },
     { label: "Barbara (Qwen)", value: "qwen_barbara", id: "qwen_barbara" },
-    { label: "James (Qwen)", value: "qwen_james", id: "qwen_james" }
+    { label: "James (Qwen)", value: "qwen_james", id: "qwen_james" },
+    { label: "young female (Qwen)", value: "qwen_young_female", id: "qwen_young_female" },
+    { label: "Young male (Qwen)", value: "qwen_young_male", id: "qwen_young_male" }
 ];
 
 export const CAPTION_POSITIONS = [
