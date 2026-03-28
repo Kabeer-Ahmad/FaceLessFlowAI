@@ -1338,6 +1338,52 @@ export default function ProjectPage() {
                         <div className="h-6 w-px bg-white/10"></div>
                         )}
 
+                        {/* PASTEL CARD: Caption Font Picker */}
+                        {project.settings.templateMode === 'pastel_card' && (
+                            <>
+                                <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Caption Font:</span>
+                                <div className="flex gap-1.5">
+                                    {[
+                                        { value: 'anton',      label: 'Anton' },
+                                        { value: 'lilita',     label: 'Lilita' },
+                                        { value: 'montserrat', label: 'Montserrat' },
+                                        { value: 'league',     label: 'League' },
+                                        { value: 'poppins',    label: 'Poppins' },
+                                        { value: 'helvetica',  label: 'Helvetica' },
+                                    ].map(f => (
+                                        <button
+                                            key={f.value}
+                                            onClick={() => handleUpdateSettings({ captions: { ...project.settings.captions, font: f.value as any } })}
+                                            className={`px-2 py-0.5 rounded text-xs border transition-all ${project.settings.captions.font === f.value ? 'bg-purple-600/30 border-purple-500 text-purple-200' : 'bg-stone-800 border-stone-700 text-stone-400 hover:border-stone-500'}`}
+                                        >
+                                            {f.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="h-6 w-px bg-white/10 mx-2"></div>
+
+                                <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Size:</span>
+                                <div className="flex gap-1">
+                                    {[
+                                        { value: 'small', label: 'S' },
+                                        { value: 'medium', label: 'M' },
+                                        { value: 'large', label: 'L' },
+                                        { value: 'xlarge', label: 'XL' },
+                                        { value: '2xl', label: '2XL' },
+                                        { value: '3xl', label: '3XL' },
+                                    ].map(s => (
+                                        <button
+                                            key={s.value}
+                                            onClick={() => handleUpdateSettings({ captions: { ...project.settings.captions, fontSize: s.value as any } })}
+                                            className={`w-7 h-6 flex items-center justify-center rounded text-[10px] font-bold border transition-all ${project.settings.captions.fontSize === s.value ? 'bg-purple-600/30 border-purple-500 text-purple-200' : 'bg-stone-800 border-stone-700 text-stone-400 hover:border-stone-500'}`}
+                                        >
+                                            {s.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+
                         {project.settings.templateMode !== 'graphic_split' && project.settings.templateMode !== 'pastel_card' && (
                             <>
                                 <span className="text-xs font-bold uppercase tracking-wider text-stone-500 whitespace-nowrap">Caption Settings:</span>
@@ -1829,7 +1875,6 @@ export default function ProjectPage() {
                     </div>
                 </div>
             )}
-        </div >
+        </div>
     );
 }
-

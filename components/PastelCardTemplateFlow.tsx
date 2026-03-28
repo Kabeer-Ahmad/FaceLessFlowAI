@@ -23,7 +23,7 @@ export default function PastelCardTemplateFlow({ onBack }: { onBack: () => void 
         captions: {
             enabled: true,
             position: 'bottom',
-            font: 'helvetica',
+            font: 'anton',
             fontSize: 'medium',
             animation: 'typewriter',
             strokeWidth: 'thin',
@@ -116,6 +116,59 @@ export default function PastelCardTemplateFlow({ onBack }: { onBack: () => void 
                                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                                     ))}
                                 </select>
+                            </div>
+
+                            {/* Caption Font - full width */}
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Caption Font</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { value: 'anton', label: 'Anton', style: { fontFamily: '"Anton", sans-serif' } },
+                                        { value: 'lilita', label: 'Lilita One', style: { fontFamily: '"Lilita One", cursive' } },
+                                        { value: 'montserrat', label: 'Montserrat', style: { fontFamily: '"Montserrat", sans-serif', fontWeight: 700 } },
+                                        { value: 'league', label: 'League Spartan', style: { fontFamily: '"League Spartan", sans-serif' } },
+                                        { value: 'poppins', label: 'Poppins', style: { fontFamily: '"Poppins", sans-serif' } },
+                                        { value: 'helvetica', label: 'Helvetica', style: { fontFamily: 'Helvetica, Arial, sans-serif' } },
+                                    ].map(f => (
+                                        <button
+                                            key={f.value}
+                                            onClick={() => setSettings({ ...settings, captions: { ...settings.captions, font: f.value as any } })}
+                                            className={`py-2 px-3 rounded-lg text-sm border transition-all text-center ${settings.captions.font === f.value
+                                                    ? 'bg-purple-600/20 border-purple-500 text-purple-200'
+                                                    : 'bg-stone-950 border-stone-800 text-stone-400 hover:border-stone-600'
+                                                }`}
+                                            style={f.style}
+                                        >
+                                            {f.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Caption Size */}
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-xs font-semibold uppercase tracking-wider text-stone-500">Caption Size</label>
+                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                    {[
+                                        { value: 'small', label: 'S' },
+                                        { value: 'medium', label: 'M' },
+                                        { value: 'large', label: 'L' },
+                                        { value: 'xlarge', label: 'XL' },
+                                        { value: '2xl', label: '2XL' },
+                                        { value: '3xl', label: '3XL' },
+                                    ].map(s => (
+                                        <button
+                                            key={s.value}
+                                            onClick={() => setSettings({ ...settings, captions: { ...settings.captions, fontSize: s.value as any } })}
+                                            className={`py-2 rounded-lg text-xs font-bold border transition-all text-center ${settings.captions.fontSize === s.value
+                                                    ? 'bg-purple-600/20 border-purple-500 text-purple-200'
+                                                    : 'bg-stone-950 border-stone-800 text-stone-400 hover:border-stone-600'
+                                                }`}
+                                        >
+                                            {s.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>

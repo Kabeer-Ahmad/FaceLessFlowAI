@@ -23,14 +23,14 @@ export type ProjectSettings = {
     imageModel: 'fal' | 'gemini' | 'runware' | 'imagen' | 'replicate' | 'flux_dev' | 'grandma_replicate';  // Renamed from imageProvider for clarity or alias? user said "image generator". Let's stick to imageProvider to match Python script logic if possible, but valid types are key.
     audioVoice: string;
     disclaimerEnabled: boolean;
-    longSentenceBreak: boolean; // Generate 2 images for scenes with 20+ words
+    longSentenceBreak: boolean; // Generate 2 images for scenes with 17+ words
     headingsEnabled: boolean; // Show animated headings for matching scenes
     headings?: string[]; // Array of heading texts extracted from script
     captions: {
         enabled: boolean;
         position: 'bottom' | 'mid-bottom' | 'center' | 'top';
-        font: 'helvetica' | 'serif' | 'brush';
-        fontSize: 'small' | 'medium' | 'large' | 'xlarge';
+        font: 'helvetica' | 'serif' | 'brush' | 'anton' | 'lilita' | 'montserrat' | 'league' | 'poppins' | 'sans';
+        fontSize: 'small' | 'medium' | 'large' | 'xlarge' | '2xl' | '3xl';
         animation: 'none' | 'typewriter' | 'fade-in' | 'slide-up' | 'bounce';
         strokeWidth: 'thin' | 'medium' | 'thick' | 'bold';
         style: 'word_pop' | 'karaoke' | 'mrbeast' | 'classic' | 'dark_psychology';

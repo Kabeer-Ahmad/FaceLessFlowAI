@@ -223,6 +223,22 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
         );
         const visibleText = scene.text.slice(0, visibleChars);
 
+        // Font family mapping for pastel card captions
+        const pastelFontFamily = (() => {
+            switch (settings.captions.font) {
+                case 'lilita':       return '"Lilita One", cursive';
+                case 'montserrat':   return '"Montserrat", sans-serif';
+                case 'league':       return '"League Spartan", sans-serif';
+                case 'poppins':      return '"Poppins", sans-serif';
+                case 'helvetica':    return 'Helvetica, Arial, sans-serif';
+                case 'sans':         return 'system-ui, sans-serif';
+                default:             return '"Anton", sans-serif'; // 'brush' slot re-used for Anton
+            }
+        })();
+
+        const hasDualImages = !!(scene.image_url && scene.image_url_2);
+        const cardBorderStyle = { border: '6px solid #1a1a1a', borderRadius: '32px', overflow: 'hidden' as const, boxShadow: '0 12px 36px rgba(0,0,0,0.18)' };
+
         return (
             <AbsoluteFill style={{ overflow: 'hidden', ...getTransitionStyle() }}>
                 {/* Background: template_3 pastel gradient */}
@@ -236,58 +252,46 @@ export const Scene: React.FC<Props> = ({ scene, settings }) => {
                     <Audio src={scene.audio_url} volume={1} startFrom={0} />
                 )}
 
-                {/* Image Card — top area, from ~3% to ~62% height */}
-                {scene.image_url && (
-                    <div style={{
-                        position: 'absolute',
-                        top: '3%',
-                        left: '4%',
-                        right: '4%',
-                        height: '59%',
-                        border: '6px solid #1a1a1a',
-                        borderRadius: '40px',
-                        overflow: 'hidden',
-                        boxShadow: '0 16px 48px rgba(0,0,0,0.18)',
-                    }}>
+                {/* Image area — top 3% to 62% */}
+                {hasDualImages ? (
+                    /* Dual side-by-side image cards */
+                    <div style={{ position: 'absolute', top: '3%', left: '3%', right: '3%', height: '59%', display: 'flex', gap: '2.5%' }}>
+                        <div style={{ flex: 1, ...cardBorderStyle }}>
+                            <Img src={scene.image_url!} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)` }} />
+                        </div>
+                        <div style={{ flex: 1, ...cardBorderStyle }}>
+                            <Img src={scene.image_url_2!} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)` }} />
+                        </div>
+                    </div>
+                ) : scene.image_url ? (
+                    /* Single image card */
+                    <div style={{ position: 'absolute', top: '3%', left: '4%', right: '4%', height: '59%', ...cardBorderStyle }}>
                         <Img
                             src={scene.image_url}
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
-                            }}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)` }}
                         />
                     </div>
-                )}
+                ) : null}
 
-                {/* Captions — bottom 35% area, typewriter, translucent white pill box, black text */}
-                <div style={{
-                    position: 'absolute',
-                    bottom: '4%',
-                    left: '4%',
-                    right: '4%',
-                    top: '66%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0 2%',
-                }}>
-                    <div style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.72)',
-                        backdropFilter: 'blur(12px)',
-                        borderRadius: '28px',
-                        padding: '3% 5%',
-                        width: '100%',
-                        maxHeight: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-                    }}>
+                {/* Captions — bottom area, typewriter, frosted white pill, selected font */}
+                <div style={{ position: 'absolute', bottom: '4%', left: '4%', right: '4%', top: '66%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2%' }}>
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.72)', backdropFilter: 'blur(12px)', borderRadius: '28px', padding: '3% 5%', width: '100%', maxHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
                         <span style={{
-                            fontFamily: '"Anton", sans-serif',
-                            fontSize: `${Math.round(height * 0.042)}px`,
+                            fontFamily: pastelFontFamily,
+                            fontWeight: settings.captions.font === 'montserrat' ? 700 : undefined,
+                            fontSize: (() => {
+                                // Steps: each step is ~4px at 1080p (≈3pt)
+                                const base = height * 0.042; // ~45px at 1080p
+                                switch (settings.captions.fontSize) {
+                                    case 'small':  return `${Math.round(base - 4)}px`;  // ~41px
+                                    case 'medium': return `${Math.round(base)}px`;       // ~45px (default)
+                                    case 'large':  return `${Math.round(base + 4)}px`;   // ~49px
+                                    case 'xlarge': return `${Math.round(base + 8)}px`;   // ~53px
+                                    case '2xl':    return `${Math.round(base + 12)}px`;  // ~57px
+                                    case '3xl':    return `${Math.round(base + 16)}px`;  // ~61px
+                                    default:       return `${Math.round(base)}px`;
+                                }
+                            })(),
                             color: '#111111',
                             textAlign: 'center',
                             lineHeight: 1.35,

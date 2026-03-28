@@ -2,10 +2,18 @@ import { Composition } from 'remotion';
 import { MainComposition, MainCompositionSchema } from './MainComposition';
 import { loadFont } from '@remotion/google-fonts/PermanentMarker';
 import { loadFont as loadAnton } from '@remotion/google-fonts/Anton';
+import { loadFont as loadLilitaOne } from '@remotion/google-fonts/LilitaOne';
+import { loadFont as loadMontserrat } from '@remotion/google-fonts/Montserrat';
+import { loadFont as loadLeagueSpartan } from '@remotion/google-fonts/LeagueSpartan';
+import { loadFont as loadPoppins } from '@remotion/google-fonts/Poppins';
 import './style.css';
 
 loadFont();
 loadAnton();
+loadLilitaOne();
+loadMontserrat();
+loadLeagueSpartan();
+loadPoppins();
 
 export const RemotionRoot: React.FC = () => {
     return (

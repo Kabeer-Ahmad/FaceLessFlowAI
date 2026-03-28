@@ -412,8 +412,13 @@ No text in image.`;
             // 8.5. Check if we need a second image (Long Sentence Break)
             let imageUrl2: string | null = null;
             const wordCount = text.trim().split(/\s+/).length;
-            if (settings.longSentenceBreak && wordCount > 20 && mediaType === 'image') {
-                console.log(`Scene has ${wordCount} words - generating second image for variety`);
+            const isPastelCardMode = settings.templateMode === 'pastel_card';
+            const shouldGenerateSecond = mediaType === 'image' && (
+                (isPastelCardMode && wordCount >= 17) ||
+                (settings.longSentenceBreak && wordCount > 20)
+            );
+            if (shouldGenerateSecond) {
+                console.log(`[PastelCard] Scene ${sceneIndex} has ${wordCount} words (>17) — generating second image`);
                 try {
                     // Generate a different prompt for the second image with retry
                     const prompt2Response = await keyRotation.withRetry(
@@ -442,7 +447,7 @@ No text in image.`;
 
                     console.log('Generating second image with different prompt:', simplePrompt2);
 
-                    // Generate second image using same model
+                    // Generate second image using same model as first
                     if (settings.imageModel === 'imagen') {
                         try {
                             imageUrl2 = await generateImagenImage(fullPrompt2, projectId, sceneIndex + 0.5, settings.aspectRatio);
@@ -452,12 +457,17 @@ No text in image.`;
                         }
                     } else if (settings.imageModel === 'gemini') {
                         imageUrl2 = await generateGeminiImage(fullPrompt2, projectId, sceneIndex + 0.5, settings.aspectRatio);
+                    } else if (settings.imageModel === 'replicate') {
+                        imageUrl2 = await generateReplicateImage(fullPrompt2, settings.aspectRatio, projectId, sceneIndex + 0.5);
+                    } else if (settings.imageModel === 'flux_dev') {
+                        imageUrl2 = await generateFluxDevImage(fullPrompt2, settings.aspectRatio, projectId, sceneIndex + 0.5);
+                    } else if (settings.imageModel === 'grandma_replicate') {
+                        imageUrl2 = await generateGrandmaImage(fullPrompt2, settings.aspectRatio, projectId, sceneIndex + 0.5);
                     } else if (settings.imageModel === 'runware' || settings.visualStyle === 'reference_image') {
                         const modelId = settings.visualStyle === 'reference_image' ? "runware:400@1" : "runware:100@1";
                         const refImageId = (settings.visualStyle === 'reference_image' && settings.referenceCharacter)
                             ? CHARACTER_REFERENCE_MAP[settings.referenceCharacter]
                             : undefined;
-
                         const removeBg = settings.templateMode === 'graphic_split';
                         imageUrl2 = await generateRunwareImage(fullPrompt2, projectId, sceneIndex + 0.5, settings.aspectRatio, modelId, refImageId, removeBg);
                     } else {
