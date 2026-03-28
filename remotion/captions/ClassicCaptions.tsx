@@ -77,7 +77,9 @@ export const ClassicCaptions: React.FC<ClassicCaptionsProps> = ({ text, duration
                             small: height > width ? (width < 500 ? 24 : 36) : (width < 1000 ? 32 : 48),
                             medium: height > width ? (width < 500 ? 32 : 48) : (width < 1000 ? 42 : 64),
                             large: height > width ? (width < 500 ? 40 : 60) : (width < 1000 ? 52 : 80),
-                            xlarge: height > width ? (width < 500 ? 48 : 72) : (width < 1000 ? 64 : 96)
+                            xlarge: height > width ? (width < 500 ? 48 : 72) : (width < 1000 ? 64 : 96),
+                            '2xl': height > width ? (width < 500 ? 56 : 84) : (width < 1000 ? 76 : 112),
+                            '3xl': height > width ? (width < 500 ? 64 : 96) : (width < 1000 ? 88 : 128)
                         };
                         return sizeMap[settings.captions.fontSize || 'medium'];
                     })(),
